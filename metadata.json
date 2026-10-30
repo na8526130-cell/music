@@ -1,0 +1,7 @@
+{
+  "name": "zero-music",
+  "description": "High-fidelity music streaming, synced lyrics, gapless playback, and playlist import powered by YouTube Music InnerTube.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
