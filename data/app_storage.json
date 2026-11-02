@@ -1,0 +1,147 @@
+{
+  "totalAccessCount": 40,
+  "accounts": [
+    {
+      "id": "usr_1793521133121_m6do1",
+      "username": "user_22722",
+      "passwordHash": "e0e6097a6f8af07daf5fc7244336ba37133713a8fc7345c36d667dfa513fabaa",
+      "email": "test@domain.com",
+      "registeredAt": "2026-11-01T08:18:53.121Z",
+      "lastActive": "2026-11-01T08:18:53.134Z",
+      "preferences": {
+        "newReleases": true,
+        "playlistUpdates": true,
+        "lyricsSync": true
+      },
+      "playlists": []
+    },
+    {
+      "id": "usr_1793521285914_7psuv",
+      "username": "海斗",
+      "passwordHash": "b7ebd1cfc61851aa699681a9f8618871841e00fc2285beae5bcc75527e6bbafa",
+      "email": "h4534470@gmail.com",
+      "registeredAt": "2026-11-01T08:21:25.914Z",
+      "lastActive": "2026-11-01T08:21:59.704Z",
+      "preferences": {
+        "newReleases": true,
+        "playlistUpdates": true,
+        "lyricsSync": true
+      },
+      "playlists": [
+        {
+          "id": "favorites",
+          "name": "My Best Hits",
+          "createdAt": "2026-11-01T08:12:17.673Z",
+          "tracks": []
+        }
+      ]
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif_1793521291786_pr5lo",
+      "username": "海斗",
+      "email": "h4534470@gmail.com",
+      "subject": "【Zero Music】リアルタイム通知テスト (配信成功)",
+      "body": "Zero Musicより海斗様宛のリアルタイム通知テストです。お気に入り楽曲やプレイリストの最新情報が配信されます。",
+      "type": "test",
+      "timestamp": "2026-11-01T08:21:31.786Z",
+      "status": "delivered",
+      "deliveryMessageId": "smtp_delivery_1793521291786_9264"
+    },
+    {
+      "id": "notif_1793521285914_pt6w",
+      "username": "海斗",
+      "email": "h4534470@gmail.com",
+      "subject": "【Zero Music】アカウント登録が完了しました",
+      "body": "海斗 様、Zero Musicへのご登録ありがとうございます。プレイリストのクラウド同期とお気に入りアーティストの最新通知が有効になりました。",
+      "type": "welcome",
+      "timestamp": "2026-11-01T08:21:25.914Z",
+      "status": "delivered",
+      "deliveryMessageId": "msg_1793521285914_smtp_ok"
+    },
+    {
+      "id": "notif_1793521133122_9jim",
+      "username": "user_22722",
+      "email": "test@domain.com",
+      "subject": "【Zero Music】アカウント登録が完了しました",
+      "body": "user_22722 様、Zero Musicへのご登録ありがとうございます。プレイリストのクラウド同期とお気に入りアーティストの最新通知が有効になりました。",
+      "type": "welcome",
+      "timestamp": "2026-11-01T08:18:53.121Z",
+      "status": "delivered",
+      "deliveryMessageId": "msg_1793521133122_smtp_ok"
+    }
+  ],
+  "trackOffsets": {
+    "m9SMT5ipbxk": {
+      "offsetSec": -0.8,
+      "title": "アイドル (YOASOBI)",
+      "updatedAt": "2026-11-01T08:28:40.605Z"
+    }
+  },
+  "analytics": {
+    "totalPlaybackSeconds": 594,
+    "totalTracksPlayed": 3,
+    "trackPlays": {
+      "dQw4w9WgXcQ": {
+        "videoId": "dQw4w9WgXcQ",
+        "title": "Never Gonna Give You Up",
+        "artist": "Rick Astley",
+        "thumbnail": "",
+        "playCount": 1,
+        "lastPlayed": "2026-11-02T10:46:30.874Z"
+      },
+      "KyXsavhevjE": {
+        "videoId": "KyXsavhevjE",
+        "title": "Amazing",
+        "artist": "Official Hige Dandism",
+        "thumbnail": "https://yt3.googleusercontent.com/aixVDum8bIjxh-zawNsilqtKif-lH5ogu3B5eUMGp6BPilm5_iYJs5aon8gDUa5Cd5ec67lClIkEwoE6=w60-h60-l90-rj",
+        "playCount": 1,
+        "lastPlayed": "2026-11-02T11:16:13.304Z"
+      },
+      "yConQFSM6xM": {
+        "videoId": "yConQFSM6xM",
+        "title": "Amazing (LIVE)",
+        "artist": "Official HIGE DANdism",
+        "thumbnail": "https://yt3.googleusercontent.com/PXleIRlQfniKVnPNrKJu6DLuvvZPgkgZdY0icaOBr3I9tTjUixNMu_iHM9lp37OYOxMLV2qd2BRb4JQ=w60-h60-s-l90-rj",
+        "playCount": 1,
+        "lastPlayed": "2026-11-02T11:16:16.150Z"
+      }
+    },
+    "searchQueries": {
+      "yoasobi": {
+        "query": "YOASOBI",
+        "count": 1,
+        "lastSearched": "2026-11-02T10:46:30.896Z"
+      },
+      "アメイジングofficial髭男dism": {
+        "query": "アメイジングOfficial髭男dism",
+        "count": 1,
+        "lastSearched": "2026-11-02T11:16:11.642Z"
+      }
+    },
+    "hourlyVisits": {
+      "11": 16
+    },
+    "clientDevices": {
+      "desktop": 1,
+      "mobile": 15,
+      "tablet": 0
+    },
+    "clientBrowsers": {
+      "Safari": 15,
+      "Other": 1
+    },
+    "clientOS": {
+      "macOS": 15,
+      "Other": 1
+    },
+    "lyricsStats": {
+      "views": 4,
+      "syncedHits": 3,
+      "plainHits": 0,
+      "notFound": 1
+    },
+    "playbackErrors": []
+  }
+}

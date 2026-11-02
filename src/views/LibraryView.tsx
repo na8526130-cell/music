@@ -24,6 +24,7 @@ export const LibraryView: React.FC = () => {
     deleteUserPlaylist,
     currentTrack,
     setImportModalOpen,
+    openAddToPlaylistModal,
   } = usePlayer();
 
   const [activeTab, setActiveTab] = useState<'liked' | 'history' | 'playlists'>('liked');
@@ -237,6 +238,14 @@ export const LibraryView: React.FC = () => {
                       </button>
                       <button
                         type="button"
+                        onClick={() => openAddToPlaylistModal(track)}
+                        className="p-1.5 text-neutral-400 hover:text-white"
+                        title="プレイリストに追加"
+                      >
+                        <ListPlus className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => addToQueue(track)}
                         className="p-1.5 text-neutral-400 hover:text-white"
                         title="キューに追加"
@@ -294,14 +303,24 @@ export const LibraryView: React.FC = () => {
                     </p>
                     <p className="text-xs text-neutral-400 truncate">{track.artist}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => playTrack(track)}
-                    className="p-1.5 text-neutral-300 hover:text-white"
-                    title="再生"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => openAddToPlaylistModal(track)}
+                      className="p-1.5 text-neutral-400 hover:text-white"
+                      title="プレイリストに追加"
+                    >
+                      <ListPlus className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => playTrack(track)}
+                      className="p-1.5 text-neutral-300 hover:text-white"
+                      title="再生"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

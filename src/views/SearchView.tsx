@@ -14,6 +14,7 @@ import {
   Users,
   ListMusic,
   Search,
+  ListPlus,
 } from 'lucide-react';
 
 type SearchFilterType = 'all' | 'song' | 'video' | 'album' | 'artist' | 'playlist';
@@ -28,6 +29,7 @@ export const SearchView: React.FC = () => {
     likedTrackIds,
     navigateTo,
     currentTrack,
+    openAddToPlaylistModal,
   } = usePlayer();
 
   const [filter, setFilter] = useState<SearchFilterType>('all');
@@ -236,13 +238,23 @@ export const SearchView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => toggleLikeTrack(track)}
+                          title="お気に入り"
                           className="p-1.5 text-neutral-400 hover:text-red-500 transition-colors"
                         >
                           <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
                         </button>
                         <button
                           type="button"
+                          onClick={() => openAddToPlaylistModal(track)}
+                          title="プレイリストに追加"
+                          className="p-1.5 text-neutral-400 hover:text-white transition-colors"
+                        >
+                          <ListPlus className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => addToQueue(track)}
+                          title="キューに追加"
                           className="p-1.5 text-neutral-400 hover:text-white transition-colors"
                         >
                           <Plus className="w-4 h-4" />
@@ -442,13 +454,23 @@ export const SearchView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => toggleLikeTrack(track)}
+                        title="お気に入り"
                         className="p-1.5 text-neutral-400 hover:text-red-500"
                       >
                         <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
                       </button>
                       <button
                         type="button"
+                        onClick={() => openAddToPlaylistModal(track)}
+                        title="プレイリストに追加"
+                        className="p-1.5 text-neutral-400 hover:text-white"
+                      >
+                        <ListPlus className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => addToQueue(track)}
+                        title="キューに追加"
                         className="p-1.5 text-neutral-400 hover:text-white"
                       >
                         <Plus className="w-4 h-4" />

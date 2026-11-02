@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { api } from '../services/api';
-import { Search, Terminal, Disc3, X, Link2 } from 'lucide-react';
+import { Search, Terminal, Disc3, X, Link2, User, Bell, ShieldCheck } from 'lucide-react';
 
 export const TopNavbar: React.FC = () => {
   const {
@@ -11,6 +11,12 @@ export const TopNavbar: React.FC = () => {
     setSearchQuery,
     setInspectorOpen,
     setImportModalOpen,
+    currentUser,
+    setAccountModalOpen,
+    stats,
+    onlineCount,
+    isAdmin,
+    setAdminModalOpen,
   } = usePlayer();
 
   const [localInput, setLocalInput] = useState(searchQuery);
@@ -55,8 +61,10 @@ export const TopNavbar: React.FC = () => {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!localInput.trim()) return;
-    setSearchQuery(localInput.trim());
+    const query = localInput.trim();
+    if (!query) return;
+    setSearchQuery(query);
+    api.recordSearchTelemetry(query);
     setIsSuggestOpen(false);
     navigateTo('search');
   };
@@ -64,27 +72,48 @@ export const TopNavbar: React.FC = () => {
   const handleSelectSuggestion = (item: string) => {
     setLocalInput(item);
     setSearchQuery(item);
+    api.recordSearchTelemetry(item);
     setIsSuggestOpen(false);
     navigateTo('search');
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-[#070708]/95 backdrop-blur-md border-b border-neutral-800/80 px-4 md:px-8 py-3.5 flex items-center justify-between gap-6">
-      {/* Zone 1: Wordmark */}
-      <button
-        type="button"
-        onClick={() => navigateTo('home')}
-        className="flex items-center gap-2.5 text-left group whitespace-nowrap shrink-0 focus:outline-none cursor-pointer"
-      >
-        <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/30 group-hover:scale-105 transition-transform">
-          <Disc3 className="w-4.5 h-4.5 animate-[spin_6s_linear_infinite]" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-lg font-black tracking-tight text-white leading-tight">
-            zero<span className="text-red-500 font-black">-music</span>
+    <header className="sticky top-0 z-40 bg-[#070708]/95 backdrop-blur-md border-b border-neutral-800/80 px-4 md:px-8 py-3.5 flex items-center justify-between gap-4 md:gap-6">
+      {/* Zone 1: Wordmark & Live Online Presence Badge (誰でも常に見える) */}
+      <div className="flex items-center gap-3 shrink-0">
+        <button
+          type="button"
+          onClick={() => navigateTo('home')}
+          className="flex items-center gap-2.5 text-left group whitespace-nowrap shrink-0 focus:outline-none cursor-pointer"
+        >
+          <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/30 group-hover:scale-105 transition-transform">
+            <Disc3 className="w-4.5 h-4.5 animate-[spin_6s_linear_infinite]" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-lg font-black tracking-tight text-white leading-tight">
+              zero<span className="text-red-500 font-black">-music</span>
+            </span>
+          </div>
+        </button>
+
+        {/* Live Online Users Badge - Visible to Everyone on all screens */}
+        <button
+          type="button"
+          onClick={() => setAccountModalOpen(true)}
+          title={`現在リアルタイム接続中: ${onlineCount}人（クリックでシステム稼働実績を表示）`}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-500/40 hover:border-emerald-400/70 text-emerald-300 transition-all cursor-pointer shadow-sm shadow-emerald-950/40 select-none group"
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-        </div>
-      </button>
+          <span className="hidden xs:inline sm:inline text-[11px] font-medium text-emerald-300/90 group-hover:text-emerald-200">
+            オンライン
+          </span>
+          <span className="font-extrabold text-white text-xs font-mono">{onlineCount}</span>
+          <span className="text-[10px] text-emerald-400 font-bold">人</span>
+        </button>
+      </div>
 
       {/* Zone 2: Navigation Links */}
       <nav className="hidden md:flex items-center gap-7 text-sm font-medium">
@@ -170,6 +199,70 @@ export const TopNavbar: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Real Stats Pill (オンライン人数 & 総アクセス回数 & アカウント数 - 偽はいらん) */}
+        <button
+          type="button"
+          onClick={() => setAccountModalOpen(true)}
+          title="システム稼働状況: リアルタイムオンライン人数・総アクセス回数・登録アカウント数（クリックで詳細）"
+          className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900/80 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 transition-colors cursor-pointer text-xs font-mono"
+        >
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-neutral-400">オンライン</span>
+            <span className="font-bold text-emerald-400">{onlineCount}人</span>
+          </span>
+          <span className="text-neutral-600">/</span>
+          <span className="flex items-center gap-1">
+            <span className="text-neutral-400">アクセス</span>
+            <span className="font-bold text-white">{stats.totalAccessCount.toLocaleString()}</span>
+          </span>
+          <span className="text-neutral-600">/</span>
+          <span className="flex items-center gap-1">
+            <span className="text-neutral-400">アカウント</span>
+            <span className="font-bold text-neutral-200">{stats.totalAccountsCount.toLocaleString()}</span>
+          </span>
+        </button>
+
+        {/* Account Status Button */}
+        <button
+          type="button"
+          onClick={() => setAccountModalOpen(true)}
+          title={currentUser ? `ログイン中: ${currentUser.username}${currentUser.email ? ` (${currentUser.email})` : ''}` : 'ゲスト利用中 (アカウント登録・ログイン)'}
+          className={`px-2.5 sm:px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0 cursor-pointer border ${
+            currentUser
+              ? 'bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-700/80'
+              : 'bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 border-neutral-800'
+          }`}
+        >
+          {currentUser ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <User className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-mono truncate max-w-[110px]">
+                {currentUser.username}
+              </span>
+            </>
+          ) : (
+            <>
+              <User className="w-3.5 h-3.5 text-neutral-400" />
+              <span>アカウント</span>
+            </>
+          )}
+        </button>
+
+        {/* Master Admin Console Button */}
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setAdminModalOpen(true)}
+            title="管理者コンソールを開く (マスター認証済み)"
+            className="px-2.5 sm:px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm shrink-0 cursor-pointer bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">👑 管理者</span>
+          </button>
+        )}
 
         {/* Global One-Click URL Import Button */}
         <button

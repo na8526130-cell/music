@@ -152,4 +152,261 @@ export const api = {
       return url;
     }
   },
+
+  async getStats(): Promise<{ totalAccessCount: number; totalAccountsCount: number; onlineCount: number }> {
+    try {
+      const res = await fetch('/api/stats');
+      if (!res.ok) return { totalAccessCount: 1, totalAccountsCount: 0, onlineCount: 1 };
+      return res.json();
+    } catch {
+      return { totalAccessCount: 1, totalAccountsCount: 0, onlineCount: 1 };
+    }
+  },
+
+  async recordVisit(): Promise<{ totalAccessCount: number; totalAccountsCount: number; onlineCount: number }> {
+    try {
+      const res = await fetch('/api/stats/visit', { method: 'POST' });
+      if (!res.ok) return { totalAccessCount: 1, totalAccountsCount: 0, onlineCount: 1 };
+      return res.json();
+    } catch {
+      return { totalAccessCount: 1, totalAccountsCount: 0, onlineCount: 1 };
+    }
+  },
+
+  // Real-time Presence API
+  async sendPresenceHeartbeat(sessionId: string, username?: string): Promise<{ onlineCount: number; sessionId: string }> {
+    try {
+      const res = await fetch('/api/presence/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, username }),
+      });
+      if (!res.ok) return { onlineCount: 1, sessionId };
+      return res.json();
+    } catch {
+      return { onlineCount: 1, sessionId };
+    }
+  },
+
+  sendPresenceLeave(sessionId: string) {
+    try {
+      const payload = JSON.stringify({ sessionId });
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon('/api/presence/leave', blob);
+      } else {
+        fetch('/api/presence/leave', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+        }).catch(() => {});
+      }
+    } catch {}
+  },
+
+  async getOnlinePresence(): Promise<{ onlineCount: number; activeSessions: any[] }> {
+    try {
+      const res = await fetch('/api/presence/online');
+      if (!res.ok) return { onlineCount: 1, activeSessions: [] };
+      return res.json();
+    } catch {
+      return { onlineCount: 1, activeSessions: [] };
+    }
+  },
+
+  async getAccountProfile(username: string) {
+    const res = await fetch(`/api/account/profile?username=${encodeURIComponent(username)}`);
+    if (!res.ok) throw new Error('Failed to fetch profile');
+    return res.json();
+  },
+
+  async registerAccount(data: {
+    username: string;
+    password: string;
+    email?: string;
+    playlists?: any[];
+  }) {
+    const res = await fetch('/api/account/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || '登録に失敗しました');
+    }
+    return res.json();
+  },
+
+  async loginAccount(data: { identifier: string; password: string }) {
+    const res = await fetch('/api/account/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'ログインに失敗しました');
+    }
+    return res.json();
+  },
+
+  async syncAccountPlaylists(username: string, playlists: any[]) {
+    const res = await fetch('/api/account/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, playlists }),
+    });
+    return res.json();
+  },
+
+  async sendNotification(data: {
+    username?: string;
+    email?: string;
+    subject?: string;
+    body?: string;
+    type?: string;
+  }) {
+    const res = await fetch('/api/account/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || '通知送信に失敗しました');
+    }
+    return res.json();
+  },
+
+  async getAccountNotifications(query: string) {
+    const res = await fetch(`/api/account/notifications?username=${encodeURIComponent(query)}`);
+    if (!res.ok) return { notifications: [] };
+    return res.json();
+  },
+
+  // Admin Master API methods (Password: @zeromusic)
+  async adminLogin(password: string) {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || '管理者パスワードが正しくありません');
+    }
+    return res.json();
+  },
+
+  async getAdminOverview() {
+    const res = await fetch('/api/admin/overview');
+    if (!res.ok) throw new Error('管理者情報の取得に失敗しました');
+    return res.json();
+  },
+
+  async deleteUser(username: string) {
+    const res = await fetch('/api/admin/users/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'ユーザー削除に失敗しました');
+    }
+    return res.json();
+  },
+
+  async resetUserPassword(username: string, newPassword: string) {
+    const res = await fetch('/api/admin/users/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, newPassword }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'パスワードリセットに失敗しました');
+    }
+    return res.json();
+  },
+
+  // Telemetry & Real Usage Analytics
+  async recordPlaybackTelemetry(data: {
+    videoId: string;
+    title?: string;
+    artist?: string;
+    thumbnail?: string;
+    durationSeconds?: number;
+  }) {
+    fetch('/api/telemetry/playback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).catch(() => {});
+  },
+
+  async recordSearchTelemetry(query: string) {
+    fetch('/api/telemetry/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    }).catch(() => {});
+  },
+
+  async recordLyricsTelemetry(data: { isSynced: boolean; isAvailable: boolean }) {
+    fetch('/api/telemetry/lyrics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).catch(() => {});
+  },
+
+  async recordErrorTelemetry(data: { videoId?: string; title?: string; error: string }) {
+    fetch('/api/telemetry/error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).catch(() => {});
+  },
+
+  async setTrackOffset(data: { videoId: string; offsetSec: number; title?: string; remove?: boolean }) {
+    const res = await fetch('/api/admin/track-offset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'オフセット設定に失敗しました');
+    }
+    return res.json();
+  },
+
+  async getTrackOffsets() {
+    const res = await fetch('/api/track-offsets');
+    if (!res.ok) return { trackOffsets: {} };
+    return res.json();
+  },
+
+  async broadcastNotification(subject: string, body: string) {
+    const res = await fetch('/api/admin/broadcast-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject, body }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || '一斉配信に失敗しました');
+    }
+    return res.json();
+  },
+
+  async clearLyricsCache() {
+    const res = await fetch('/api/admin/cache/clear', { method: 'POST' });
+    if (!res.ok) throw new Error('キャッシュ消去に失敗しました');
+    return res.json();
+  },
 };
+

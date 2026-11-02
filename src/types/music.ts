@@ -57,11 +57,13 @@ export interface SyncedLine {
 export interface LyricsData {
   available: boolean;
   isSynced: boolean;
+  isApproximate?: boolean;
   syncedLyrics?: SyncedLine[];
   lyrics: string;
   footer?: string;
   source?: string;
   error?: string;
+  globalOffset?: number;
 }
 
 export interface ExploreData {

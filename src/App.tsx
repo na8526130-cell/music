@@ -8,6 +8,9 @@ import { QueueDrawer } from './components/QueueDrawer';
 import { InnerTubeInspectorModal } from './components/InnerTubeInspectorModal';
 import { BackgroundGuideModal } from './components/BackgroundGuideModal';
 import { PlaylistImportModal } from './components/PlaylistImportModal';
+import { AddToPlaylistModal } from './components/AddToPlaylistModal';
+import { AccountModal } from './components/AccountModal';
+import { AdminConsoleModal } from './components/AdminConsoleModal';
 import { HomeExploreView } from './views/HomeExploreView';
 import { SearchView } from './views/SearchView';
 import { ArtistDetailView } from './views/ArtistDetailView';
@@ -82,6 +85,9 @@ const MainLayout: React.FC = () => {
       <InnerTubeInspectorModal />
       <BackgroundGuideModal />
       <PlaylistImportModal />
+      <AddToPlaylistModal />
+      <AccountModal />
+      <AdminConsoleModal />
     </div>
   );
 };

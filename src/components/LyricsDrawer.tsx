@@ -18,6 +18,8 @@ import {
   Sliders,
   RotateCcw,
   Mic2,
+  ListPlus,
+  Zap,
 } from 'lucide-react';
 
 function formatSeconds(secs: number): string {
@@ -29,8 +31,15 @@ function formatSeconds(secs: number): string {
 }
 
 export const LyricsDrawer: React.FC = () => {
-  const { currentTrack, lyricsOpen, setLyricsOpen, progress, duration, seekTo } =
-    usePlayer();
+  const {
+    currentTrack,
+    lyricsOpen,
+    setLyricsOpen,
+    progress,
+    duration,
+    seekTo,
+    openAddToPlaylistModal,
+  } = usePlayer();
 
   const [data, setData] = useState<LyricsData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -73,36 +82,23 @@ export const LyricsDrawer: React.FC = () => {
       )
       .then((res) => {
         if (!cancelled) {
-          let processed = res;
-          // If syncedLyrics is empty but plain lyrics exist, synthesize on client as guaranteed fallback
-          if ((!processed.syncedLyrics || processed.syncedLyrics.length === 0) && processed.lyrics) {
-            const rawLines = processed.lyrics
-              .split('\n')
-              .map((l: string) => l.trim())
-              .filter(Boolean);
-            if (rawLines.length > 0) {
-              const dur = currentTrack.durationSeconds || duration || 210;
-              const intro = Math.min(16, Math.max(5, dur * 0.06));
-              const singing = Math.max(20, dur - intro - 10);
-              const totalW = rawLines.reduce((s: number, l: string) => s + Math.max(3, l.length), 0);
-              let cur = intro;
-              const syn = rawLines.map((l: string) => {
-                const item = { time: Math.round(cur * 10) / 10, text: l };
-                cur += (Math.max(3, l.length) / totalW) * singing;
-                return item;
-              });
-              processed = { ...processed, syncedLyrics: syn, isSynced: true };
-            }
+          setData(res);
+          if (typeof res.globalOffset === 'number' && res.globalOffset !== 0) {
+            setTimingOffset(res.globalOffset);
           }
-          setData(processed);
-          setViewMode('synced');
+          setViewMode(res.isSynced && res.syncedLyrics && res.syncedLyrics.length > 0 ? 'synced' : 'plain');
           setLoading(false);
+          api.recordLyricsTelemetry({
+            isSynced: !!res.isSynced,
+            isAvailable: !!res.available,
+          });
         }
       })
       .catch((err) => {
         if (!cancelled) {
           setData({ available: false, isSynced: false, lyrics: '', error: err.message });
           setLoading(false);
+          api.recordLyricsTelemetry({ isSynced: false, isAvailable: false });
         }
       });
 
@@ -114,12 +110,22 @@ export const LyricsDrawer: React.FC = () => {
   // Determine active singing line with timing offset applied
   const effectiveProgress = progress + timingOffset;
 
+  // Detect whether the song starts immediately without a long intro (< 3.0s)
+  const isNoIntroSong = Boolean(
+    data?.syncedLyrics?.[0]?.time !== undefined && data.syncedLyrics[0].time < 3.0
+  );
+
   const activeLineIndex = useMemo(() => {
     if (!data?.syncedLyrics || data.syncedLyrics.length === 0) return -1;
     const lines = data.syncedLyrics;
 
+    // If currently playing before the first line's actual vocal onset, return -1 (still in intro/preparation)
+    if (effectiveProgress < lines[0].time - 0.1) {
+      return -1;
+    }
+
     for (let i = lines.length - 1; i >= 0; i--) {
-      if (effectiveProgress >= lines[i].time - 0.2) {
+      if (effectiveProgress >= lines[i].time - 0.1) {
         return i;
       }
     }
@@ -217,13 +223,31 @@ export const LyricsDrawer: React.FC = () => {
       <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800/80 bg-[#101014]/90 backdrop-blur-md">
         <div className="flex items-center gap-2.5">
           <Sparkles className="w-4 h-4 text-red-500" />
-          <h3 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+          <h3 className="text-sm font-bold text-white tracking-wide flex items-center gap-2 flex-wrap">
             <span>リアルタイム同期歌詞</span>
-            {data?.isSynced && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-600/20 border border-red-500/30 text-[10px] font-mono text-red-400">
-                <Radio className="w-2.5 h-2.5 animate-pulse text-red-500" />
-                <span>SYNC</span>
+            {isNoIntroSong && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-mono text-amber-300">
+                <Zap className="w-2.5 h-2.5 text-amber-400" />
+                <span>即歌い出し (イントロ無)</span>
               </span>
+            )}
+            {data?.isSynced && (
+              data.isApproximate ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-mono text-amber-300">
+                  <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                  <span>大体の位置を追従</span>
+                </span>
+              ) : data.source?.includes('字幕') ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-[10px] font-mono text-cyan-300">
+                  <Radio className="w-2.5 h-2.5 animate-pulse text-cyan-400" />
+                  <span>字幕同期</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-600/20 border border-red-500/30 text-[10px] font-mono text-red-400">
+                  <Radio className="w-2.5 h-2.5 animate-pulse text-red-500" />
+                  <span>SYNC (高精度)</span>
+                </span>
+              )
             )}
           </h3>
         </div>
@@ -238,7 +262,7 @@ export const LyricsDrawer: React.FC = () => {
                 setSearchQuery(`${currentTrack.title} ${currentTrack.artist || ''}`.trim());
               }
             }}
-            className={`p-1.5 rounded-lg transition-colors ${
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
               searchOpen ? 'bg-red-600/30 text-red-400' : 'text-neutral-400 hover:text-white'
             }`}
             title="歌詞が違う場合に曲名で再検索"
@@ -251,7 +275,7 @@ export const LyricsDrawer: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowOffsetControls((prev) => !prev)}
-              className={`p-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 ${
+              className={`p-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer ${
                 timingOffset !== 0
                   ? 'bg-amber-600/30 text-amber-300 border border-amber-500/30'
                   : showOffsetControls
@@ -316,6 +340,18 @@ export const LyricsDrawer: React.FC = () => {
           >
             {isImmersive ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
+
+          {/* Add to Playlist Button */}
+          {currentTrack && (
+            <button
+              type="button"
+              onClick={() => openAddToPlaylistModal(currentTrack)}
+              className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors cursor-pointer"
+              title="この曲をプレイリストに追加"
+            >
+              <ListPlus className="w-4 h-4 text-red-500" />
+            </button>
+          )}
 
           {/* Copy Button */}
           {(data?.lyrics || data?.syncedLyrics) && (
@@ -390,36 +426,161 @@ export const LyricsDrawer: React.FC = () => {
 
       {/* Timing Offset Adjuster Bar */}
       {showOffsetControls && data?.isSynced && (
-        <div className="px-6 py-2 bg-neutral-900/90 border-b border-neutral-800/80 flex items-center justify-between text-xs text-neutral-300">
-          <div className="flex items-center gap-1.5">
-            <Sliders className="w-3.5 h-3.5 text-amber-400" />
-            <span>タイミングズレ調整:</span>
-            <span className="font-mono font-bold text-amber-400">
-              {timingOffset > 0 ? `+${timingOffset.toFixed(1)}s` : `${timingOffset.toFixed(1)}s`}
-            </span>
+        <div className="px-6 py-3 bg-[#13131c] border-b border-neutral-800/80 space-y-2.5 text-xs text-neutral-300 shadow-lg">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Sliders className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-semibold text-white">ズレ補正:</span>
+              <span className="font-mono font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30">
+                {timingOffset > 0 ? `+${timingOffset.toFixed(1)}s` : `${timingOffset.toFixed(1)}s`}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => setTimingOffset((prev) => Math.round((prev - 2.0) * 10) / 10)}
+                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[11px] font-mono cursor-pointer"
+                title="歌詞を2秒遅らせる"
+              >
+                -2s
+              </button>
+              <button
+                onClick={() => setTimingOffset((prev) => Math.round((prev - 1.0) * 10) / 10)}
+                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[11px] font-mono cursor-pointer"
+                title="歌詞を1秒遅らせる"
+              >
+                -1s
+              </button>
+              <button
+                onClick={() => setTimingOffset((prev) => Math.round((prev - 0.5) * 10) / 10)}
+                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[11px] font-mono cursor-pointer"
+                title="歌詞を0.5秒遅らせる"
+              >
+                -0.5s
+              </button>
+              <button
+                onClick={() => setTimingOffset(0)}
+                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white rounded text-[11px] cursor-pointer"
+                title="リセット (0秒)"
+              >
+                <RotateCcw className="w-3 h-3 inline mr-1" />
+                リセット
+              </button>
+              <button
+                onClick={() => setTimingOffset((prev) => Math.round((prev + 0.5) * 10) / 10)}
+                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[11px] font-mono cursor-pointer"
+                title="歌詞を0.5秒早める"
+              >
+                +0.5s
+              </button>
+              <button
+                onClick={() => setTimingOffset((prev) => Math.round((prev + 1.0) * 10) / 10)}
+                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[11px] font-mono cursor-pointer"
+                title="歌詞を1秒早める"
+              >
+                +1s
+              </button>
+              <button
+                onClick={() => setTimingOffset((prev) => Math.round((prev + 2.0) * 10) / 10)}
+                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[11px] font-mono cursor-pointer"
+                title="歌詞を2秒早める"
+              >
+                +2s
+              </button>
+
+              {activeLineIndex >= 0 && data?.syncedLyrics?.[activeLineIndex] && (
+                <button
+                  onClick={() => {
+                    const targetLine = data.syncedLyrics![activeLineIndex];
+                    const neededOffset = Math.round((targetLine.time - progress) * 10) / 10;
+                    setTimingOffset(neededOffset);
+                  }}
+                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded text-[11px] transition-colors cursor-pointer shadow-md"
+                  title="今の再生時間に歌詞行を瞬時にロック"
+                >
+                  今の位置に合わせる
+                </button>
+              )}
+
+              {activeLineIndex === -1 && data?.syncedLyrics?.[0] && (
+                <button
+                  onClick={() => {
+                    const firstLine = data.syncedLyrics![0];
+                    const neededOffset = Math.round((firstLine.time - progress) * 10) / 10;
+                    setTimingOffset(neededOffset);
+                  }}
+                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded text-[11px] transition-colors cursor-pointer shadow-md flex items-center gap-1"
+                  title="1行目の歌い出しを今の再生時間に瞬時に合わせる"
+                >
+                  <Zap className="w-3 h-3" />
+                  <span>歌い出しを今すぐ合わせる</span>
+                </button>
+              )}
+            </div>
+
+            {/* Quick Presets for No-Intro / Video Delay */}
+            {isNoIntroSong && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-amber-500/20 w-full">
+                <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-amber-400" />
+                  <span>イントロなし専用補正:</span>
+                </span>
+                <button
+                  onClick={() => setTimingOffset(0)}
+                  className="px-2 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[11px] font-mono cursor-pointer"
+                  title="CD音源標準 (0.0s)"
+                >
+                  標準 (0.0s)
+                </button>
+                <button
+                  onClick={() => setTimingOffset(0.5)}
+                  className="px-2 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-amber-300 rounded text-[11px] font-mono cursor-pointer"
+                  title="わずかな遅延を補正 (+0.5s)"
+                >
+                  +0.5s
+                </button>
+                <button
+                  onClick={() => setTimingOffset(0.8)}
+                  className="px-2 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-amber-300 rounded text-[11px] font-mono cursor-pointer"
+                  title="YouTube再生遅延を補正 (+0.8s)"
+                >
+                  YouTube遅延 (+0.8s)
+                </button>
+                <button
+                  onClick={() => setTimingOffset(1.2)}
+                  className="px-2 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-amber-300 rounded text-[11px] font-mono cursor-pointer"
+                  title="MVロゴ・空白を補正 (+1.2s)"
+                >
+                  MVロゴ遅延 (+1.2s)
+                </button>
+                <button
+                  onClick={() => setTimingOffset(-0.5)}
+                  className="px-2 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded text-[11px] font-mono cursor-pointer"
+                  title="早めに表示 (-0.5s)"
+                >
+                  -0.5s
+                </button>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setTimingOffset((prev) => Math.round((prev - 0.5) * 10) / 10)}
-              className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[11px] font-mono"
-              title="歌詞を0.5秒遅らせる"
-            >
-              -0.5s
-            </button>
-            <button
-              onClick={() => setTimingOffset(0)}
-              className="p-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white rounded"
-              title="リセット (0秒)"
-            >
-              <RotateCcw className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => setTimingOffset((prev) => Math.round((prev + 0.5) * 10) / 10)}
-              className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[11px] font-mono"
-              title="歌詞を0.5秒早める"
-            >
-              +0.5s
-            </button>
+
+          <div className="flex items-center justify-between gap-4 pt-1 border-t border-neutral-800/60">
+            <div className="flex items-center gap-2 flex-1 max-w-sm">
+              <span className="text-[10px] text-neutral-400 shrink-0 font-mono">-10s</span>
+              <input
+                type="range"
+                min="-10"
+                max="10"
+                step="0.1"
+                value={timingOffset}
+                onChange={(e) => setTimingOffset(Math.round(parseFloat(e.target.value) * 10) / 10)}
+                className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-amber-400"
+              />
+              <span className="text-[10px] text-neutral-400 shrink-0 font-mono">+10s</span>
+            </div>
+            <p className="text-[11px] text-amber-300/90 font-medium hidden sm:inline">
+              💡 下の歌詞行にある「🎯今ここ」を押しても即座にピタッと合います
+            </p>
           </div>
         </div>
       )}
@@ -440,9 +601,23 @@ export const LyricsDrawer: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setSearchOpen(true);
+                if (currentTrack) {
+                  setSearchQuery(`${currentTrack.title} ${currentTrack.artist || ''}`.trim());
+                }
+              }}
+              className="text-[10px] text-neutral-400 hover:text-white bg-neutral-800/80 hover:bg-neutral-700 px-2 py-1 rounded transition-colors hidden sm:inline-flex items-center gap-1 cursor-pointer"
+              title="歌詞が違う場合に別の候補を検索"
+            >
+              <Search className="w-2.5 h-2.5 text-neutral-400" />
+              <span>歌詞変更</span>
+            </button>
             {data?.source && (
-              <span className="text-[10px] text-neutral-500 font-mono hidden sm:inline">
+              <span className="text-[10px] text-neutral-500 font-mono hidden md:inline">
                 {data.source}
               </span>
             )}
@@ -481,28 +656,93 @@ export const LyricsDrawer: React.FC = () => {
         ) : data?.syncedLyrics && data.syncedLyrics.length > 0 ? (
           /* Real-time Synchronized Karaoke View */
           <div className="space-y-4">
+            {/* Informational banner when approximate section-aware sync is active */}
+            {data.isApproximate && (
+              <div className="mb-4 p-3 rounded-xl bg-amber-950/20 border border-amber-500/25 flex items-center justify-between gap-3 text-xs text-amber-200/90 shadow-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="truncate">曲の構成から現在地をハイライト追従中（行タップで移動）</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowOffsetControls(true)}
+                  className="text-[11px] underline text-amber-300 hover:text-white shrink-0 font-medium cursor-pointer"
+                >
+                  ズレ補正
+                </button>
+              </div>
+            )}
+
             {/* Intro State when track is playing before vocal onset */}
             {activeLineIndex === -1 && data.syncedLyrics.length > 0 && (
-              <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-red-600/20 via-red-500/10 to-transparent border border-red-500/30 flex items-center justify-between shadow-lg shadow-red-950/30 animate-pulse">
+              <div
+                className={`mb-6 p-4 rounded-2xl flex items-center justify-between shadow-lg transition-all ${
+                  isNoIntroSong
+                    ? 'bg-gradient-to-r from-amber-600/25 via-amber-500/10 to-transparent border border-amber-500/40 shadow-amber-950/30'
+                    : 'bg-gradient-to-r from-red-600/20 via-red-500/10 to-transparent border border-red-500/30 shadow-red-950/30 animate-pulse'
+                }`}
+              >
                 <div className="flex items-center gap-3">
                   <div className="flex items-end gap-1 h-5">
-                    <span className="w-1 bg-red-500 rounded-full animate-bounce h-3" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1 bg-red-400 rounded-full animate-bounce h-5" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1 bg-rose-400 rounded-full animate-bounce h-4" style={{ animationDelay: '300ms' }} />
-                    <span className="w-1 bg-amber-400 rounded-full animate-bounce h-2" style={{ animationDelay: '450ms' }} />
+                    <span
+                      className={`w-1 rounded-full animate-bounce h-3 ${isNoIntroSong ? 'bg-amber-400' : 'bg-red-500'}`}
+                      style={{ animationDelay: '0ms' }}
+                    />
+                    <span
+                      className={`w-1 rounded-full animate-bounce h-5 ${isNoIntroSong ? 'bg-amber-300' : 'bg-red-400'}`}
+                      style={{ animationDelay: '150ms' }}
+                    />
+                    <span
+                      className={`w-1 rounded-full animate-bounce h-4 ${isNoIntroSong ? 'bg-rose-400' : 'bg-rose-400'}`}
+                      style={{ animationDelay: '300ms' }}
+                    />
+                    <span
+                      className={`w-1 rounded-full animate-bounce h-2 ${isNoIntroSong ? 'bg-yellow-300' : 'bg-amber-400'}`}
+                      style={{ animationDelay: '450ms' }}
+                    />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
-                      <span>イントロ演奏中...</span>
-                      <span className="text-[10px] bg-red-500/30 text-red-300 px-2 py-0.5 rounded-full font-mono">INTRO</span>
+                      {isNoIntroSong ? (
+                        <>
+                          <span className="text-amber-300">⚡ イントロなし楽曲 (即歌い出し)</span>
+                          <span className="text-[10px] bg-amber-500/30 text-amber-300 px-2 py-0.5 rounded-full font-mono">
+                            FAST START
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span>イントロ演奏中...</span>
+                          <span className="text-[10px] bg-red-500/30 text-red-300 px-2 py-0.5 rounded-full font-mono">
+                            INTRO
+                          </span>
+                        </>
+                      )}
                     </p>
-                    <p className="text-[11px] text-neutral-400 mt-0.5">間もなく歌唱パートが始まります</p>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">
+                      {isNoIntroSong
+                        ? `歌い出し直前: あと ${Math.max(0, data.syncedLyrics[0].time - effectiveProgress).toFixed(1)} 秒`
+                        : '間もなく歌唱パートが始まります'}
+                    </p>
                   </div>
                 </div>
+
                 {data.syncedLyrics[0] && (
-                  <span className="text-xs font-mono font-bold text-red-400 bg-red-500/20 px-3 py-1 rounded-full border border-red-500/40">
-                    歌い出し {formatSeconds(data.syncedLyrics[0].time)}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const needed = Math.round((data.syncedLyrics![0].time - progress) * 10) / 10;
+                      setTimingOffset(needed);
+                      setShowOffsetControls(true);
+                    }}
+                    className="text-xs font-mono font-bold text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 px-3 py-1.5 rounded-full border border-amber-500/40 cursor-pointer flex items-center gap-1.5 transition-colors"
+                    title="歌い出しタイミングを今すぐ同期"
+                  >
+                    <span>歌い出し {data.syncedLyrics[0].time.toFixed(2)}s</span>
+                    <span className="text-[10px] bg-amber-400 text-neutral-950 px-1 rounded font-bold">
+                      🎯合致
+                    </span>
+                  </button>
                 )}
               </div>
             )}
@@ -604,15 +844,32 @@ export const LyricsDrawer: React.FC = () => {
                       </p>
                     </div>
 
-                    <span
-                      className={`text-[11px] font-mono shrink-0 tabular-nums transition-colors ${
-                        isActive
-                          ? 'text-red-400 font-bold opacity-100 shadow-sm'
-                          : 'text-neutral-600 opacity-0 group-hover:opacity-100'
-                      }`}
-                    >
-                      {formatSeconds(line.time)}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {showOffsetControls && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const neededOffset = Math.round((line.time - progress) * 10) / 10;
+                            setTimingOffset(neededOffset);
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
+                          title="この行が今歌われている！として同期タイミングを合わせる"
+                        >
+                          <Sparkles className="w-2.5 h-2.5" />
+                          <span>今ここ</span>
+                        </button>
+                      )}
+                      <span
+                        className={`text-[11px] font-mono shrink-0 tabular-nums transition-colors ${
+                          isActive
+                            ? 'text-red-400 font-bold opacity-100 shadow-sm'
+                            : 'text-neutral-600 opacity-0 group-hover:opacity-100'
+                        }`}
+                      >
+                        {formatSeconds(line.time)}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Active line singing progress bar (karaoke shimmer) */}
@@ -630,9 +887,29 @@ export const LyricsDrawer: React.FC = () => {
           </div>
         ) : data?.available && data?.lyrics ? (
           /* Plain Text Lyrics View */
-          <div className="space-y-4 pt-4">
+          <div className="space-y-6 pt-4 max-w-xl mx-auto">
+            <div className="p-3.5 rounded-xl bg-neutral-900/90 border border-white/10 text-xs text-neutral-300 flex items-center justify-between gap-3 shadow-md">
+              <div className="flex items-center gap-2.5">
+                <AlignLeft className="w-4 h-4 shrink-0 text-amber-400" />
+                <div>
+                  <p className="font-semibold text-white">公式テキスト歌詞</p>
+                  <p className="text-[11px] text-neutral-400">この楽曲は公式未同期のため、ズレ防止のため全行を表示しています</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchOpen(true);
+                  if (currentTrack) setSearchQuery(currentTrack.title);
+                }}
+                className="px-2.5 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 rounded-lg font-medium text-[11px] shrink-0 transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <Search className="w-3 h-3" />
+                <span>同期歌詞を検索</span>
+              </button>
+            </div>
             <div
-              className={`leading-relaxed whitespace-pre-line font-sans ${
+              className={`leading-relaxed whitespace-pre-line font-sans text-neutral-200 px-2 ${
                 fontSize === 'large' ? 'text-lg md:text-xl font-medium' : 'text-sm md:text-base'
               }`}
             >

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { usePlayer } from '../context/PlayerContext';
+import { api } from '../services/api';
 import { X, Tv, ShieldCheck } from 'lucide-react';
 
 declare global {
@@ -126,6 +127,21 @@ export const YouTubePlayer: React.FC = () => {
               stopAudioHardwareKeepAlive();
               onPlayerTrackEnded();
             }
+          },
+          onError: (event: any) => {
+            const errCodes: Record<number, string> = {
+              2: '無効な動画パラメータ',
+              5: 'HTML5プレーヤーエラー',
+              100: '動画が見つかりません/非公開',
+              101: '埋め込み再生不許可',
+              150: '埋め込み再生不許可 (配信者制限)',
+            };
+            const errorMsg = errCodes[event.data] || `プレーヤーエラー (${event.data})`;
+            api.recordErrorTelemetry({
+              videoId: currentTrack?.id,
+              title: currentTrack?.title,
+              error: errorMsg,
+            });
           },
         },
       });

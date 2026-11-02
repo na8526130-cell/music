@@ -79,6 +79,32 @@ interface PlayerContextType {
   removeFromUserPlaylist: (playlistId: string, trackId: string) => void;
   deleteUserPlaylist: (playlistId: string) => void;
 
+  // Account & Real Stats System (偽はいらん)
+  currentUser: { username: string; email?: string } | null;
+  accountEmail: string | null;
+  accountModalOpen: boolean;
+  setAccountModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  registerUserAccount: (username: string, password: string, email?: string) => Promise<any>;
+  loginUserAccount: (identifier: string, password: string) => Promise<any>;
+  logoutAccount: () => void;
+  stats: { totalAccessCount: number; totalAccountsCount: number; onlineCount: number };
+  onlineCount: number;
+  refreshStats: () => Promise<void>;
+
+  // Admin Master Control (パスワード: @zeromusic)
+  isAdmin: boolean;
+  adminModalOpen: boolean;
+  setAdminModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  adminLoginWithPassword: (password: string) => Promise<any>;
+  trackOffsets: Record<string, { offsetSec: number; title?: string }>;
+  refreshTrackOffsets: () => Promise<void>;
+
+  // Add to Playlist Modal
+  addToPlaylistModalOpen: boolean;
+  setAddToPlaylistModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  trackToAddToPlaylist: Track | null;
+  openAddToPlaylistModal: (track: Track) => void;
+
   // Internal bridge with YouTube player
   userIntendedPlayingRef: React.MutableRefObject<boolean>;
   onPlayerTimeUpdate: (current: number, total: number) => void;
@@ -209,6 +235,251 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [backgroundPlaybackEnabled]);
 
+  // Real Stats & Account Session persistence (偽はいらん)
+  const [currentUser, setCurrentUser] = useState<{ username: string; email?: string } | null>(() => {
+    try {
+      const saved = localStorage.getItem('yt_music_user_session_v1');
+      if (saved) return JSON.parse(saved);
+      const email = localStorage.getItem('yt_music_user_email_v1');
+      if (email) return { username: email.split('@')[0], email };
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [stats, setStats] = useState<{ totalAccessCount: number; totalAccountsCount: number; onlineCount: number }>({
+    totalAccessCount: 1,
+    totalAccountsCount: 0,
+    onlineCount: 1,
+  });
+  const [onlineCount, setOnlineCount] = useState<number>(1);
+  const sessionIdRef = useRef<string>('');
+
+  const [accountModalOpen, setAccountModalOpen] = useState<boolean>(false);
+
+  // Fetch real stats from server
+  const refreshStats = useCallback(async () => {
+    try {
+      const s = await api.getStats();
+      if (s && typeof s.totalAccessCount === 'number') {
+        setStats(s);
+        if (typeof s.onlineCount === 'number') {
+          setOnlineCount(s.onlineCount);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to refresh stats:', e);
+    }
+  }, []);
+
+  // Record real visit on startup and initialize real stats
+  useEffect(() => {
+    api
+      .recordVisit()
+      .then((s) => {
+        if (s && typeof s.totalAccessCount === 'number') {
+          setStats(s);
+          if (typeof s.onlineCount === 'number') {
+            setOnlineCount(s.onlineCount);
+          }
+        }
+      })
+      .catch(() => {});
+
+    const interval = setInterval(refreshStats, 30000);
+    return () => clearInterval(interval);
+  }, [refreshStats]);
+
+  // Real-time Active Presence Heartbeat (Every 15s, with instant leave on window close)
+  useEffect(() => {
+    if (!sessionIdRef.current) {
+      try {
+        let id = sessionStorage.getItem('zm_presence_session_id');
+        if (!id) {
+          id = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          sessionStorage.setItem('zm_presence_session_id', id);
+        }
+        sessionIdRef.current = id;
+      } catch {
+        sessionIdRef.current = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      }
+    }
+
+    const currentSessionId = sessionIdRef.current;
+
+    const sendHeartbeat = async () => {
+      try {
+        const res = await api.sendPresenceHeartbeat(currentSessionId, currentUser?.username);
+        if (res && typeof res.onlineCount === 'number') {
+          setOnlineCount(res.onlineCount);
+          setStats((prev) => ({ ...prev, onlineCount: res.onlineCount }));
+        }
+      } catch {}
+    };
+
+    // Immediate initial heartbeat
+    sendHeartbeat();
+
+    // 15 seconds heartbeat loop
+    const heartbeatTimer = setInterval(sendHeartbeat, 15000);
+
+    // Immediate update when returning to tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        sendHeartbeat();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Instant leave beacon when tab or browser closes
+    const handleUnload = () => {
+      api.sendPresenceLeave(currentSessionId);
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+
+    return () => {
+      clearInterval(heartbeatTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
+    };
+  }, [currentUser?.username]);
+
+  // Add to Playlist modal state
+  const [addToPlaylistModalOpen, setAddToPlaylistModalOpen] = useState<boolean>(false);
+  const [trackToAddToPlaylist, setTrackToAddToPlaylist] = useState<Track | null>(null);
+
+  const openAddToPlaylistModal = useCallback((track: Track) => {
+    setTrackToAddToPlaylist(track);
+    setAddToPlaylistModalOpen(true);
+  }, []);
+
+  // Register account with username, password, arbitrary email (no example)
+  const registerUserAccount = useCallback(
+    async (username: string, password: string, email?: string) => {
+      const res = await api.registerAccount({
+        username: username.trim(),
+        password: password.trim(),
+        email: email?.trim() || undefined,
+        playlists: userPlaylists,
+      });
+
+      const user = {
+        username: res.account.username,
+        email: res.account.email || '',
+      };
+      setCurrentUser(user);
+
+      if (res.stats) {
+        setStats(res.stats);
+      }
+
+      try {
+        localStorage.setItem('yt_music_user_session_v1', JSON.stringify(user));
+        if (user.email) {
+          localStorage.setItem('yt_music_user_email_v1', user.email);
+        }
+      } catch {}
+
+      return res;
+    },
+    [userPlaylists]
+  );
+
+  // Login account
+  const loginUserAccount = useCallback(async (identifier: string, password: string) => {
+    const res = await api.loginAccount({
+      identifier: identifier.trim(),
+      password: password.trim(),
+    });
+
+    const user = {
+      username: res.account.username,
+      email: res.account.email || '',
+    };
+    setCurrentUser(user);
+
+    if (res.account.playlists && Array.isArray(res.account.playlists) && res.account.playlists.length > 0) {
+      setUserPlaylists(res.account.playlists);
+    }
+
+    if (res.isAdmin || res.account?.role === 'admin') {
+      setIsAdmin(true);
+      try {
+        localStorage.setItem('yt_music_is_admin_v1', 'true');
+      } catch {}
+    }
+
+    if (res.stats) {
+      setStats(res.stats);
+    }
+
+    try {
+      localStorage.setItem('yt_music_user_session_v1', JSON.stringify(user));
+      if (user.email) {
+        localStorage.setItem('yt_music_user_email_v1', user.email);
+      }
+    } catch {}
+
+    return res;
+  }, []);
+
+  // Admin Master Login with password @zeromusic
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('yt_music_is_admin_v1') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
+  const [trackOffsets, setTrackOffsets] = useState<Record<string, { offsetSec: number; title?: string }>>({});
+
+  const refreshTrackOffsets = useCallback(async () => {
+    try {
+      const res = await api.getTrackOffsets();
+      setTrackOffsets(res.trackOffsets || {});
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    refreshTrackOffsets();
+  }, [refreshTrackOffsets]);
+
+  const adminLoginWithPassword = useCallback(async (password: string) => {
+    const res = await api.adminLogin(password);
+    if (res.success) {
+      setIsAdmin(true);
+      setCurrentUser({ username: 'admin', email: 'admin@zeromusic.local' });
+      try {
+        localStorage.setItem('yt_music_is_admin_v1', 'true');
+        localStorage.setItem('yt_music_user_session_v1', JSON.stringify({ username: 'admin', email: 'admin@zeromusic.local' }));
+      } catch {}
+    }
+    return res;
+  }, []);
+
+  const logoutAccount = useCallback(() => {
+    setCurrentUser(null);
+    setIsAdmin(false);
+    try {
+      localStorage.removeItem('yt_music_user_session_v1');
+      localStorage.removeItem('yt_music_user_email_v1');
+      localStorage.removeItem('yt_music_is_admin_v1');
+    } catch {}
+  }, []);
+
+  // Auto-sync playlists to cloud when registered
+  useEffect(() => {
+    if (currentUser?.username && userPlaylists.length > 0) {
+      api.syncAccountPlaylists(currentUser.username, userPlaylists).catch(() => {});
+    }
+  }, [currentUser?.username, userPlaylists]);
+
+  const accountEmail = currentUser?.email || null;
+
   const likedTrackIds = new Set(likedTracks.map((t) => t.id));
 
   const toggleBackgroundPlayback = useCallback(() => {
@@ -284,6 +555,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCurrentTrack(track);
       setProgress(0);
       setIsPlaying(true);
+
+      // Record genuine telemetry
+      api.recordPlaybackTelemetry({
+        videoId: track.id,
+        title: track.title,
+        artist: track.artist,
+        thumbnail: track.thumbnail,
+        durationSeconds: track.durationSeconds,
+      });
 
       // Reset volume to target volume when new track begins
       const win = window as any;
@@ -760,13 +1040,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       // 1. Crossfade volume modulation
       if (crossfadeDuration > 0 && total > crossfadeDuration * 2 && targetVol > 0 && !isMuted) {
-        // Fade in during initial seconds
-        if (current < crossfadeDuration) {
-          const fadeInFactor = Math.min(1, Math.max(0.05, current / crossfadeDuration));
+        // Fade in during initial seconds only during continuous playlist transition
+        if (isTransitioningEarlyRef.current && current < crossfadeDuration) {
+          const fadeInFactor = Math.min(1, Math.max(0.4, current / crossfadeDuration));
           const fadeVol = Math.round(targetVol * fadeInFactor);
           if (win.__ytPlayer && typeof win.__ytPlayer.setVolume === 'function') {
             win.__ytPlayer.setVolume(fadeVol);
           }
+        } else if (current >= crossfadeDuration && isTransitioningEarlyRef.current) {
+          isTransitioningEarlyRef.current = false;
         }
         // Fade out near end of track
         else if (total - current <= crossfadeDuration) {
@@ -914,6 +1196,29 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addToUserPlaylist,
         removeFromUserPlaylist,
         deleteUserPlaylist,
+
+        currentUser,
+        accountEmail,
+        accountModalOpen,
+        setAccountModalOpen,
+        registerUserAccount,
+        loginUserAccount,
+        logoutAccount,
+        stats,
+        onlineCount,
+        refreshStats,
+
+        isAdmin,
+        adminModalOpen,
+        setAdminModalOpen,
+        adminLoginWithPassword,
+        trackOffsets,
+        refreshTrackOffsets,
+
+        addToPlaylistModalOpen,
+        setAddToPlaylistModalOpen,
+        trackToAddToPlaylist,
+        openAddToPlaylistModal,
 
         userIntendedPlayingRef,
         onPlayerTimeUpdate,

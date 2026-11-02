@@ -22,6 +22,7 @@ import {
   Radio,
   Sliders,
   Sparkles,
+  ListPlus,
 } from 'lucide-react';
 
 function formatSeconds(secs: number): string {
@@ -70,6 +71,7 @@ export const PlayerBar: React.FC = () => {
     endlessRadioActive,
     toggleEndlessRadio,
     startRadioForTrack,
+    openAddToPlaylistModal,
   } = usePlayer();
 
   const [crossfadeMenuOpen, setCrossfadeMenuOpen] = useState(false);
@@ -179,6 +181,16 @@ export const PlayerBar: React.FC = () => {
             <Heart
               className={`w-4 h-4 md:w-5 md:h-5 ${isLiked ? 'fill-red-500 text-red-500' : ''}`}
             />
+          </button>
+
+          {/* Add to Playlist button */}
+          <button
+            type="button"
+            onClick={() => openAddToPlaylistModal(currentTrack)}
+            title="プレイリストに追加"
+            className="p-1.5 text-neutral-400 hover:text-white transition-colors shrink-0"
+          >
+            <ListPlus className="w-4 h-4 md:w-5 md:h-5" />
           </button>
 
           {/* Quick Radio station trigger button */}
