@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Track, ViewType, PlayerMode, RepeatMode } from '../types/music';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Track, ViewType, PlayerMode, VideoLayout, RepeatMode, LyricsData } from '../types/music';
 import { api } from '../services/api';
+import { equalizer } from '../services/equalizer';
+import { socialSocket } from '../services/socialSocket';
 
 interface UserPlaylist {
   id: string;
@@ -19,6 +21,9 @@ interface PlayerContextType {
   volume: number;
   isMuted: boolean;
   playerMode: PlayerMode;
+  togglePlayerMode: () => void;
+  videoLayout: VideoLayout;
+  setVideoLayout: React.Dispatch<React.SetStateAction<VideoLayout>>;
   repeatMode: RepeatMode;
   isShuffle: boolean;
   lyricsOpen: boolean;
@@ -75,7 +80,7 @@ interface PlayerContextType {
   removeFromQueue: (index: number) => void;
   clearQueue: () => void;
   createUserPlaylist: (name: string) => void;
-  addToUserPlaylist: (playlistId: string, track: Track) => void;
+  addToUserPlaylist: (playlistId: string, trackTrack: Track) => void;
   removeFromUserPlaylist: (playlistId: string, trackId: string) => void;
   deleteUserPlaylist: (playlistId: string) => void;
 
@@ -105,6 +110,54 @@ interface PlayerContextType {
   trackToAddToPlaylist: Track | null;
   openAddToPlaylistModal: (track: Track) => void;
 
+  // Real-time Synced Lyrics for Mini Player & Components
+  currentLyrics: LyricsData | null;
+  activeSyncedLyricText: string;
+
+  // Equalizer Modal
+  eqModalOpen: boolean;
+  setEqModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+
+  // Share Modal & URL Sharing
+  shareModalOpen: boolean;
+  setShareModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  shareModalPayload: { type: 'track' | 'playlist'; playlist?: { name: string; tracks: Track[] } } | null;
+  openShareModal: (type?: 'track' | 'playlist', playlist?: { name: string; tracks: Track[] }) => void;
+
+  // Mini Floating Player
+  floatingPlayerVisible: boolean;
+  setFloatingPlayerVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  floatingPlayerCollapsed: boolean;
+  setFloatingPlayerCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+
+  // Social, Comments, DM, Listening Party & Notifications
+  danmakuEnabled: boolean;
+  setDanmakuEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  commentsModalOpen: boolean;
+  setCommentsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  dmModalOpen: boolean;
+  setDmModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  dmTargetUser: string | null;
+  openDmWithUser: (username?: string) => void;
+  notificationDrawerOpen: boolean;
+  setNotificationDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  unreadNotificationCount: number;
+  refreshNotifications: () => Promise<void>;
+
+  // Terms of Service & Privacy Policy (利用規約 & プライバシーポリシー)
+  termsModalOpen: boolean;
+  setTermsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+
+  // Creative & Community Modals
+  storyModalOpen: boolean;
+  setStoryModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  quizModalOpen: boolean;
+  setQuizModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  matchModalOpen: boolean;
+  setMatchModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  collabModalOpen: boolean;
+  setCollabModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+
   // Internal bridge with YouTube player
   userIntendedPlayingRef: React.MutableRefObject<boolean>;
   onPlayerTimeUpdate: (current: number, total: number) => void;
@@ -131,6 +184,18 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [volume, setVolumeState] = useState<number>(80);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [playerMode, setPlayerMode] = useState<PlayerMode>('cover');
+  const [videoLayout, setVideoLayout] = useState<VideoLayout>('theater');
+
+  const togglePlayerMode = useCallback(() => {
+    setPlayerMode((prev) => {
+      const next = prev === 'cover' ? 'video' : 'cover';
+      if (next === 'video') {
+        setVideoLayout('theater');
+      }
+      return next;
+    });
+  }, []);
+
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
   const [lyricsOpen, setLyricsOpen] = useState<boolean>(false);
@@ -356,6 +421,194 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAddToPlaylistModalOpen(true);
   }, []);
 
+  // Track Offsets for lyrics sync adjustment
+  const [trackOffsets, setTrackOffsets] = useState<Record<string, { offsetSec: number; title?: string }>>({});
+
+  const refreshTrackOffsets = useCallback(async () => {
+    try {
+      const res = await api.getTrackOffsets();
+      setTrackOffsets(res.trackOffsets || {});
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    refreshTrackOffsets();
+  }, [refreshTrackOffsets]);
+
+  // Real-time Lyrics for Floating Player and general consumers
+  const [currentLyrics, setCurrentLyrics] = useState<LyricsData | null>(null);
+
+  useEffect(() => {
+    if (!currentTrack) {
+      setCurrentLyrics(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getLyrics(
+        currentTrack.id,
+        currentTrack.title,
+        currentTrack.artist,
+        currentTrack.durationSeconds || duration
+      )
+      .then((res) => {
+        if (!cancelled) {
+          setCurrentLyrics(res);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCurrentLyrics(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTrack?.id]);
+
+  // Equalizer Modal state & sync
+  const [eqModalOpen, setEqModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    equalizer.notifyPlaybackState(isPlaying);
+  }, [isPlaying]);
+
+  // Share Modal state & helper
+  const [shareModalOpen, setShareModalOpen] = useState<boolean>(false);
+  const [shareModalPayload, setShareModalPayload] = useState<{
+    type: 'track' | 'playlist';
+    playlist?: { name: string; tracks: Track[] };
+  } | null>(null);
+
+  const openShareModal = useCallback(
+    (type: 'track' | 'playlist' = 'track', playlist?: { name: string; tracks: Track[] }) => {
+      setShareModalPayload({ type, playlist });
+      setShareModalOpen(true);
+    },
+    []
+  );
+
+  // Floating Mini Player state
+  const [floatingPlayerVisible, setFloatingPlayerVisible] = useState<boolean>(true);
+  const [floatingPlayerCollapsed, setFloatingPlayerCollapsed] = useState<boolean>(false);
+
+  // Social, Comments, DM, Listening Party & Notifications
+  const [danmakuEnabled, setDanmakuEnabled] = useState<boolean>(true);
+  const [commentsModalOpen, setCommentsModalOpen] = useState<boolean>(false);
+  const [dmModalOpen, setDmModalOpen] = useState<boolean>(false);
+  const [dmTargetUser, setDmTargetUser] = useState<string | null>(null);
+  const [notificationDrawerOpen, setNotificationDrawerOpen] = useState<boolean>(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+  const [termsModalOpen, setTermsModalOpen] = useState<boolean>(false);
+  const [storyModalOpen, setStoryModalOpen] = useState<boolean>(false);
+  const [quizModalOpen, setQuizModalOpen] = useState<boolean>(false);
+  const [matchModalOpen, setMatchModalOpen] = useState<boolean>(false);
+  const [collabModalOpen, setCollabModalOpen] = useState<boolean>(false);
+
+  const openDmWithUser = useCallback((username?: string) => {
+    if (username) setDmTargetUser(username);
+    setDmModalOpen(true);
+  }, []);
+
+  const refreshNotifications = useCallback(async () => {
+    if (!currentUser) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+    try {
+      const res = await api.getSocialNotifications(currentUser.username);
+      setUnreadNotificationCount(res.unreadCount || 0);
+    } catch {}
+  }, [currentUser]);
+
+  // Sync user presence and nowPlaying over WebSocket
+  useEffect(() => {
+    socialSocket.setUser(currentUser ? currentUser.username : null);
+    refreshNotifications();
+  }, [currentUser, refreshNotifications]);
+
+  useEffect(() => {
+    socialSocket.setNowPlaying(
+      currentTrack
+        ? { title: currentTrack.title, artist: currentTrack.artist, videoId: currentTrack.id }
+        : null
+    );
+  }, [currentTrack]);
+
+  useEffect(() => {
+    const unsub = socialSocket.on('notification:new', () => {
+      refreshNotifications();
+    });
+    return () => unsub();
+  }, [refreshNotifications]);
+
+  // Live active synced lyric line
+  const activeSyncedLyricText = useMemo(() => {
+    if (!currentLyrics?.syncedLyrics || currentLyrics.syncedLyrics.length === 0) {
+      return '';
+    }
+    const offset =
+      currentTrack && trackOffsets[currentTrack.id]
+        ? trackOffsets[currentTrack.id].offsetSec
+        : currentLyrics.globalOffset || 0;
+    const effProgress = progress + offset;
+    const lines = currentLyrics.syncedLyrics;
+
+    if (effProgress < lines[0].time - 0.1) {
+      return '';
+    }
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (effProgress >= lines[i].time - 0.1) {
+        return lines[i].text;
+      }
+    }
+    return '';
+  }, [currentLyrics, progress, currentTrack?.id, trackOffsets]);
+
+  // URL parameters handler on mount (?track=xxx or ?share_pl=xxx)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const trackId = params.get('track');
+    const sharePlId = params.get('share_pl');
+
+    if (trackId) {
+      api
+        .getTrack(trackId)
+        .then((res) => {
+          if (res.track) {
+            playTrack(res.track);
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        })
+        .catch((e) => {
+          console.warn('[Share] Failed to load shared track from URL:', e);
+        });
+    } else if (sharePlId) {
+      api
+        .getSharedPlaylist(sharePlId)
+        .then((res) => {
+          if (res.playlist && Array.isArray(res.playlist.tracks)) {
+            const imported: UserPlaylist = {
+              id: `shared_${sharePlId}_${Date.now()}`,
+              name: res.playlist.name,
+              createdAt: new Date().toISOString(),
+              tracks: res.playlist.tracks,
+            };
+            setUserPlaylists((prev) => [imported, ...prev]);
+            if (res.playlist.tracks.length > 0) {
+              playTrack(res.playlist.tracks[0], res.playlist.tracks);
+            }
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        })
+        .catch((e) => {
+          console.warn('[Share] Failed to load shared playlist from URL:', e);
+        });
+    }
+  }, []);
+
   // Register account with username, password, arbitrary email (no example)
   const registerUserAccount = useCallback(
     async (username: string, password: string, email?: string) => {
@@ -435,18 +688,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   });
   const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
-  const [trackOffsets, setTrackOffsets] = useState<Record<string, { offsetSec: number; title?: string }>>({});
-
-  const refreshTrackOffsets = useCallback(async () => {
-    try {
-      const res = await api.getTrackOffsets();
-      setTrackOffsets(res.trackOffsets || {});
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    refreshTrackOffsets();
-  }, [refreshTrackOffsets]);
 
   const adminLoginWithPassword = useCallback(async (password: string) => {
     const res = await api.adminLogin(password);
@@ -520,6 +761,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Send raw commands to player instance and iframe postMessage
   const dispatchPlayCommand = useCallback(() => {
     const win = window as any;
+    if (win.__localAudio) {
+      try {
+        win.__localAudio.play().catch(() => {});
+      } catch {}
+    }
     if (win.__ytPlayer && typeof win.__ytPlayer.playVideo === 'function') {
       win.__ytPlayer.playVideo();
     }
@@ -535,6 +781,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const dispatchPauseCommand = useCallback(() => {
     const win = window as any;
+    if (win.__localAudio) {
+      try {
+        win.__localAudio.pause();
+      } catch {}
+    }
     if (win.__ytPlayer && typeof win.__ytPlayer.pauseVideo === 'function') {
       win.__ytPlayer.pauseVideo();
     }
@@ -639,6 +890,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const seekTo = useCallback((seconds: number) => {
     setProgress(seconds);
     const win = window as any;
+    if (win.__localAudio) {
+      try {
+        win.__localAudio.currentTime = seconds;
+      } catch {}
+    }
     if (win.__ytPlayer && typeof win.__ytPlayer.seekTo === 'function') {
       win.__ytPlayer.seekTo(seconds, true);
     }
@@ -1182,6 +1438,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         toggleShuffle,
         cycleRepeat,
         setPlayerMode,
+        togglePlayerMode,
+        videoLayout,
+        setVideoLayout,
         setLyricsOpen,
         setQueueOpen,
         setInspectorOpen,
@@ -1219,6 +1478,45 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setAddToPlaylistModalOpen,
         trackToAddToPlaylist,
         openAddToPlaylistModal,
+
+        currentLyrics,
+        activeSyncedLyricText,
+
+        eqModalOpen,
+        setEqModalOpen,
+
+        shareModalOpen,
+        setShareModalOpen,
+        shareModalPayload,
+        openShareModal,
+
+        floatingPlayerVisible,
+        setFloatingPlayerVisible,
+        floatingPlayerCollapsed,
+        setFloatingPlayerCollapsed,
+
+        danmakuEnabled,
+        setDanmakuEnabled,
+        commentsModalOpen,
+        setCommentsModalOpen,
+        dmModalOpen,
+        setDmModalOpen,
+        dmTargetUser,
+        openDmWithUser,
+        notificationDrawerOpen,
+        setNotificationDrawerOpen,
+        unreadNotificationCount,
+        refreshNotifications,
+        termsModalOpen,
+        setTermsModalOpen,
+        storyModalOpen,
+        setStoryModalOpen,
+        quizModalOpen,
+        setQuizModalOpen,
+        matchModalOpen,
+        setMatchModalOpen,
+        collabModalOpen,
+        setCollabModalOpen,
 
         userIntendedPlayingRef,
         onPlayerTimeUpdate,

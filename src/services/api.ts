@@ -1,4 +1,4 @@
-import { Track, Album, Artist, Playlist, LyricsData, ExploreData, InnerTubeLog } from '../types/music';
+import { Track, Album, Artist, Playlist, LyricsData, ExploreData, InnerTubeLog, OriconTrack } from '../types/music';
 
 export const api = {
   async getHealth() {
@@ -10,6 +10,17 @@ export const api = {
     const res = await fetch('/api/music/explore');
     if (!res.ok) throw new Error('Failed to fetch explore');
     return res.json();
+  },
+
+  async getOriconRanking(type: 'streaming' | 'digital' = 'streaming'): Promise<OriconTrack[]> {
+    try {
+      const res = await fetch(`/api/music/oricon?type=${type}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.items || [];
+    } catch {
+      return [];
+    }
   },
 
   async getSuggestions(query: string): Promise<string[]> {
@@ -406,6 +417,301 @@ export const api = {
   async clearLyricsCache() {
     const res = await fetch('/api/admin/cache/clear', { method: 'POST' });
     if (!res.ok) throw new Error('キャッシュ消去に失敗しました');
+    return res.json();
+  },
+
+  async getTrack(videoId: string): Promise<{ track: Track }> {
+    const res = await fetch(`/api/music/track/${videoId}`);
+    if (!res.ok) throw new Error('楽曲の取得に失敗しました');
+    return res.json();
+  },
+
+  async sharePlaylist(payload: { name: string; author?: string; tracks: Track[] }) {
+    const res = await fetch('/api/share/playlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'プレイリストの共有に失敗しました');
+    }
+    return res.json();
+  },
+
+  async getSharedPlaylist(shareId: string): Promise<{
+    playlist: {
+      id: string;
+      name: string;
+      author?: string;
+      tracks: Track[];
+      createdAt: string;
+      viewCount: number;
+    };
+  }> {
+    const res = await fetch(`/api/share/playlist/${shareId}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || '共有プレイリストが見つかりません');
+    }
+    return res.json();
+  },
+
+  async getRecentSharedPlaylists() {
+    const res = await fetch('/api/share/recent');
+    if (!res.ok) return { playlists: [] };
+    return res.json();
+  },
+
+  // --- Track Comments & Danmaku ---
+  async getComments(videoId: string) {
+    const res = await fetch(`/api/comments/${videoId}`);
+    if (!res.ok) return { comments: [] };
+    return res.json();
+  },
+
+  async postComment(
+    videoId: string,
+    payload: {
+      text: string;
+      timestampSec: number;
+      formattedTime: string;
+      username: string;
+      color?: string;
+      trackTitle?: string;
+    }
+  ) {
+    const res = await fetch(`/api/comments/${videoId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'コメントの投稿に失敗しました');
+    }
+    return res.json();
+  },
+
+  async likeComment(videoId: string, commentId: string, username: string) {
+    const res = await fetch(`/api/comments/${videoId}/${commentId}/like`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+    });
+    if (!res.ok) throw new Error('いいねに失敗しました');
+    return res.json();
+  },
+
+  async deleteComment(videoId: string, commentId: string, username: string, isAdmin?: boolean) {
+    const res = await fetch(`/api/comments/${videoId}/${commentId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, isAdmin }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'コメント削除に失敗しました');
+    }
+    return res.json();
+  },
+
+  // --- Direct Messaging (DM) ---
+  async getConversations(username: string) {
+    const res = await fetch(`/api/dm/conversations?username=${encodeURIComponent(username)}`);
+    if (!res.ok) return { conversations: [] };
+    return res.json();
+  },
+
+  async getMessages(user1: string, user2: string) {
+    const res = await fetch(
+      `/api/dm/messages?user1=${encodeURIComponent(user1)}&user2=${encodeURIComponent(user2)}`
+    );
+    if (!res.ok) return { messages: [] };
+    return res.json();
+  },
+
+  async sendDirectMessage(payload: {
+    sender: string;
+    recipient: string;
+    content?: string;
+    trackCard?: any;
+    playlistCard?: any;
+  }) {
+    const res = await fetch('/api/dm/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'メッセージの送信に失敗しました');
+    }
+    return res.json();
+  },
+
+  async reactDirectMessage(messageId: string, emoji: string, username: string) {
+    const res = await fetch('/api/dm/react', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId, emoji, username }),
+    });
+    return res.json();
+  },
+
+  async markDirectMessageRead(conversationId: string, reader: string, sender?: string) {
+    const res = await fetch('/api/dm/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, reader, sender }),
+    });
+    return res.json();
+  },
+
+  // --- Listening Party & Lounges ---
+  async getPartyRooms() {
+    const res = await fetch('/api/party/rooms');
+    if (!res.ok) return { rooms: [] };
+    return res.json();
+  },
+
+  async createPartyRoom(payload: {
+    name: string;
+    description?: string;
+    category?: string;
+    hostUsername: string;
+    initialTrack?: any;
+  }) {
+    const res = await fetch('/api/party/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'ルーム作成に失敗しました');
+    }
+    return res.json();
+  },
+
+  async getPartyRoom(roomId: string) {
+    const res = await fetch(`/api/party/room/${roomId}`);
+    if (!res.ok) throw new Error('ルームが見つかりません');
+    return res.json();
+  },
+
+  // --- Social Notifications & Activity Feed ---
+  async getSocialNotifications(username: string) {
+    const res = await fetch(`/api/social/notifications?username=${encodeURIComponent(username)}`);
+    if (!res.ok) return { notifications: [], unreadCount: 0 };
+    return res.json();
+  },
+
+  async markSocialNotificationsRead(username: string) {
+    const res = await fetch('/api/social/notifications/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+    });
+    return res.json();
+  },
+
+  async getActivityFeed() {
+    const res = await fetch('/api/social/feed');
+    if (!res.ok) return { feed: [] };
+    return res.json();
+  },
+
+  async getSocialUsers() {
+    const res = await fetch('/api/social/users');
+    if (!res.ok) return { users: [] };
+    return res.json();
+  },
+
+  async followUser(follower: string, targetUser: string) {
+    const res = await fetch('/api/social/follow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ follower, targetUser }),
+    });
+    return res.json();
+  },
+
+  async blockUser(user: string, targetUser: string) {
+    const res = await fetch('/api/social/block', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user, targetUser }),
+    });
+    return res.json();
+  },
+
+  async unblockUser(user: string, targetUser: string) {
+    const res = await fetch('/api/social/unblock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user, targetUser }),
+    });
+    return res.json();
+  },
+
+  async sendModerationReport(payload: {
+    reporter: string;
+    reportedUser: string;
+    targetType: string;
+    targetId: string;
+    reason: string;
+    contentSnippet?: string;
+  }) {
+    const res = await fetch('/api/social/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('通報の送信に失敗しました');
+    return res.json();
+  },
+
+  // --- Admin Moderation & Community Control ---
+  async getModerationOverview() {
+    const res = await fetch('/api/admin/moderation/overview');
+    if (!res.ok) throw new Error('モデレーション情報の取得に失敗しました');
+    return res.json();
+  },
+
+  async resolveModerationReport(reportId: string, status: 'resolved' | 'dismissed') {
+    const res = await fetch('/api/admin/moderation/resolve-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reportId, status }),
+    });
+    return res.json();
+  },
+
+  async toggleBanUser(username: string) {
+    const res = await fetch('/api/admin/moderation/toggle-ban', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+    });
+    return res.json();
+  },
+
+  // --- Admin All Direct Messages Inspection (全ユーザー間DM監視・監査) ---
+  async getAdminAllDms() {
+    const res = await fetch('/api/admin/dm/all');
+    if (!res.ok) throw new Error('DMログの取得に失敗しました');
+    return res.json();
+  },
+
+  async deleteAdminDmMessage(messageId: string) {
+    const res = await fetch(`/api/admin/dm/message/${encodeURIComponent(messageId)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'メッセージの削除に失敗しました');
+    }
     return res.json();
   },
 };

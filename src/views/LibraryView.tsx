@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import {
   Heart,
@@ -10,7 +10,14 @@ import {
   Library,
   Plus,
   Link2,
+  Share2,
+  FolderDown,
+  UploadCloud,
+  Music,
+  FileAudio,
 } from 'lucide-react';
+import { parseLocalAudioFile } from '../services/localTracks';
+import { Track } from '../types/music';
 
 export const LibraryView: React.FC = () => {
   const {
@@ -25,12 +32,51 @@ export const LibraryView: React.FC = () => {
     currentTrack,
     setImportModalOpen,
     openAddToPlaylistModal,
+    openShareModal,
   } = usePlayer();
 
-  const [activeTab, setActiveTab] = useState<'liked' | 'history' | 'playlists'>('liked');
+  const [activeTab, setActiveTab] = useState<'liked' | 'history' | 'playlists' | 'local'>('liked');
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+
+  // Local tracks state
+  const [localTracks, setLocalTracks] = useState<Track[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAudioFiles = async (files: FileList | File[]) => {
+    const audioFiles = Array.from(files).filter(
+      (f) => f.type.startsWith('audio/') || /\.(mp3|wav|flac|m4a|aac|ogg|opus)$/i.test(f.name)
+    );
+    if (audioFiles.length === 0) return;
+
+    setIsProcessingFiles(true);
+    const parsed: Track[] = [];
+    for (const file of audioFiles) {
+      try {
+        const track = await parseLocalAudioFile(file);
+        parsed.push(track);
+      } catch (err) {
+        console.warn('Failed to parse audio file:', file.name, err);
+      }
+    }
+    setLocalTracks((prev) => [...prev, ...parsed]);
+    setIsProcessingFiles(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleAudioFiles(e.dataTransfer.files);
+    }
+  };
+
+  const removeLocalTrack = (id: string) => {
+    setLocalTracks((prev) => prev.filter((t) => t.id !== id));
+  };
 
   const handleCreatePlaylist = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,6 +146,22 @@ export const LibraryView: React.FC = () => {
           >
             <Library className="w-3.5 h-3.5 text-red-500" />
             <span>プレイリスト ({userPlaylists.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('local');
+              setSelectedPlaylistId(null);
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
+              activeTab === 'local' && !selectedPlaylistId
+                ? 'bg-neutral-800 text-white shadow-sm'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <FolderDown className="w-3.5 h-3.5 text-cyan-400" />
+            <span>ローカル音源 ({localTracks.length})</span>
           </button>
         </div>
       </div>
@@ -404,17 +466,30 @@ export const LibraryView: React.FC = () => {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteUserPlaylist(pl.id);
-                  }}
-                  className="p-1.5 text-neutral-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="削除"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openShareModal('playlist', { name: pl.name, tracks: pl.tracks });
+                    }}
+                    className="p-1.5 text-neutral-400 hover:text-blue-400"
+                    title="共有リンクを発行"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteUserPlaylist(pl.id);
+                    }}
+                    className="p-1.5 text-neutral-500 hover:text-red-400"
+                    title="削除"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -427,16 +502,37 @@ export const LibraryView: React.FC = () => {
                   <h3 className="text-lg font-bold text-white">{currentSelectedPlaylist.name}</h3>
                   <p className="text-xs text-neutral-400">{currentSelectedPlaylist.tracks.length}曲</p>
                 </div>
-                {currentSelectedPlaylist.tracks.length > 0 && (
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => playTrack(currentSelectedPlaylist.tracks[0], currentSelectedPlaylist.tracks)}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5"
+                    onClick={() =>
+                      openShareModal('playlist', {
+                        name: currentSelectedPlaylist.name,
+                        tracks: currentSelectedPlaylist.tracks,
+                      })
+                    }
+                    className="px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors"
+                    title="このプレイリストの共有リンクを発行"
                   >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>再生</span>
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>共有</span>
                   </button>
-                )}
+                  {currentSelectedPlaylist.tracks.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        playTrack(
+                          currentSelectedPlaylist.tracks[0],
+                          currentSelectedPlaylist.tracks
+                        )
+                      }
+                      className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>再生</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {currentSelectedPlaylist.tracks.length === 0 ? (
@@ -473,6 +569,177 @@ export const LibraryView: React.FC = () => {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Local Tracks View */}
+      {activeTab === 'local' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-cyan-950/40 via-neutral-900 to-blue-950/40 border border-cyan-500/20 rounded-2xl">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-xl bg-cyan-600 flex items-center justify-center text-white shadow-xl shadow-cyan-600/30">
+                <FolderDown className="w-8 h-8" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">ローカル音源の取り込み</h2>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  端末内の音源ファイル（MP3 / WAV / FLAC / M4A / AAC）をストリーミング曲と一緒に再生 ({localTracks.length}曲)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*,.mp3,.wav,.flac,.m4a,.aac,.ogg,.opus"
+                multiple
+                onChange={(e) => e.target.files && handleAudioFiles(e.target.files)}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isProcessingFiles}
+                className="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-lg shadow-cyan-600/20 transition-transform active:scale-95 cursor-pointer"
+              >
+                <UploadCloud className="w-4 h-4" />
+                <span>{isProcessingFiles ? '解析中...' : 'ファイルを選択'}</span>
+              </button>
+
+              {localTracks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => playTrack(localTracks[0], localTracks)}
+                  className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold rounded-xl flex items-center gap-2"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>すべて再生</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Drag & Drop Zone */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-8 sm:p-10 text-center transition-all cursor-pointer ${
+              isDragging
+                ? 'border-cyan-400 bg-cyan-950/30 scale-[1.01]'
+                : 'border-neutral-700/60 hover:border-neutral-600 bg-neutral-900/30'
+            }`}
+          >
+            <div className="max-w-md mx-auto space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-cyan-950/60 border border-cyan-500/30 flex items-center justify-center mx-auto text-cyan-400 shadow-inner">
+                <FileAudio className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  ここに音声ファイルをドラッグ＆ドロップ
+                </h3>
+                <p className="text-xs text-neutral-400 mt-1">
+                  またはクリックしてパソコン・スマホ内のMP3、WAV、FLAC、M4Aファイルを選択
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                {['.MP3', '.WAV', '.FLAC', '.M4A', '.AAC'].map((ext) => (
+                  <span
+                    key={ext}
+                    className="text-[10px] font-mono px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700/50"
+                  >
+                    {ext}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Local Tracks List */}
+          {localTracks.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Music className="w-4 h-4 text-cyan-400" />
+                  <span>読み込み済みのローカル曲 ({localTracks.length})</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setLocalTracks([])}
+                  className="text-xs text-neutral-500 hover:text-red-400 transition-colors"
+                >
+                  すべてクリア
+                </button>
+              </div>
+
+              <div className="bg-neutral-900/40 border border-neutral-800/80 rounded-2xl overflow-hidden divide-y divide-neutral-800/60 shadow-xl">
+                {localTracks.map((track, idx) => {
+                  const isCurrent = currentTrack?.id === track.id;
+                  return (
+                    <div
+                      key={track.id}
+                      className={`flex items-center gap-3.5 px-4 py-3 hover:bg-neutral-800/50 group transition-colors ${
+                        isCurrent ? 'bg-cyan-950/20' : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => playTrack(track, localTracks)}
+                        className="w-8 h-8 rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-400 hover:text-cyan-400 hover:bg-neutral-700 transition-colors shrink-0"
+                      >
+                        <Play className="w-4 h-4 fill-current ml-0.5" />
+                      </button>
+
+                      <div className="w-10 h-10 rounded-lg bg-cyan-950/80 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
+                        <FileAudio className="w-5 h-5" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p
+                          onClick={() => playTrack(track, localTracks)}
+                          className={`text-sm font-semibold truncate cursor-pointer hover:underline ${
+                            isCurrent ? 'text-cyan-400 font-bold' : 'text-white'
+                          }`}
+                        >
+                          {track.title}
+                        </p>
+                        <p className="text-xs text-neutral-400 truncate">
+                          {track.artist} • ローカル音源
+                        </p>
+                      </div>
+
+                      <span className="text-xs font-mono text-neutral-400 shrink-0">
+                        {track.duration}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => openAddToPlaylistModal(track)}
+                        title="プレイリストに追加"
+                        className="p-2 text-neutral-500 hover:text-white transition-colors"
+                      >
+                        <ListPlus className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => removeLocalTrack(track.id)}
+                        title="削除"
+                        className="p-2 text-neutral-500 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

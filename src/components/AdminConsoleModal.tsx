@@ -31,6 +31,9 @@ import {
   Headphones,
   CheckCircle,
   FileText,
+  ShieldAlert,
+  MessageSquare,
+  Eye,
 } from 'lucide-react';
 
 export const AdminConsoleModal: React.FC = () => {
@@ -46,7 +49,7 @@ export const AdminConsoleModal: React.FC = () => {
   } = usePlayer();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'ranking' | 'traffic' | 'diagnostics' | 'users' | 'offsets' | 'broadcast' | 'maintenance'
+    'overview' | 'ranking' | 'traffic' | 'diagnostics' | 'users' | 'offsets' | 'broadcast' | 'maintenance' | 'moderation' | 'dms'
   >('overview');
 
   // Login form for admin if not authenticated
@@ -58,6 +61,22 @@ export const AdminConsoleModal: React.FC = () => {
   const [overviewData, setOverviewData] = useState<any>(null);
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Admin DM Audit state
+  const [adminDmData, setAdminDmData] = useState<{
+    totalMessages: number;
+    totalConversations: number;
+    conversations: Array<{
+      conversationId: string;
+      participants: [string, string];
+      messageCount: number;
+      lastTimestamp: string;
+      messages: any[];
+    }>;
+  } | null>(null);
+  const [loadingAdminDms, setLoadingAdminDms] = useState(false);
+  const [selectedAdminConvId, setSelectedAdminConvId] = useState<string | null>(null);
+  const [dmSearchFilter, setDmSearchFilter] = useState('');
 
   // Ping test state
   const [pinging, setPinging] = useState(false);
@@ -84,6 +103,34 @@ export const AdminConsoleModal: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // Moderation state
+  const [moderationData, setModerationData] = useState<any>(null);
+  const [loadingModeration, setLoadingModeration] = useState(false);
+
+  const fetchModeration = useCallback(async () => {
+    setLoadingModeration(true);
+    try {
+      const data = await api.getModerationOverview();
+      setModerationData(data);
+    } catch {}
+    setLoadingModeration(false);
+  }, []);
+
+  const fetchAdminDms = useCallback(async () => {
+    setLoadingAdminDms(true);
+    try {
+      const data = await api.getAdminAllDms();
+      setAdminDmData(data);
+      if (!selectedAdminConvId && data.conversations?.length > 0) {
+        setSelectedAdminConvId(data.conversations[0].conversationId);
+      }
+    } catch (e) {
+      console.warn('Failed to load admin DMs:', e);
+    } finally {
+      setLoadingAdminDms(false);
+    }
+  }, [selectedAdminConvId]);
+
   const fetchOverview = useCallback(async () => {
     if (!isAdmin) return;
     setLoadingOverview(true);
@@ -100,8 +147,14 @@ export const AdminConsoleModal: React.FC = () => {
   useEffect(() => {
     if (adminModalOpen && isAdmin) {
       fetchOverview();
+      if (activeTab === 'moderation') {
+        fetchModeration();
+      }
+      if (activeTab === 'dms') {
+        fetchAdminDms();
+      }
     }
-  }, [adminModalOpen, isAdmin, fetchOverview]);
+  }, [adminModalOpen, isAdmin, activeTab, fetchOverview, fetchModeration, fetchAdminDms]);
 
   if (!adminModalOpen) return null;
 
@@ -455,6 +508,32 @@ export const AdminConsoleModal: React.FC = () => {
               >
                 <Database className="w-3.5 h-3.5" />
                 <span>システム保守</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('moderation')}
+                className={`w-full text-left px-3 py-2 rounded-xl font-semibold flex items-center gap-2 transition-colors cursor-pointer shrink-0 ${
+                  activeTab === 'moderation'
+                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                }`}
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                <span>モデレーション & 通報</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('dms')}
+                className={`w-full text-left px-3 py-2 rounded-xl font-semibold flex items-center gap-2 transition-colors cursor-pointer shrink-0 ${
+                  activeTab === 'dms'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5 text-purple-400" />
+                <span>全ユーザーDM監査</span>
               </button>
 
               <div className="mt-auto pt-2 border-t border-neutral-900 hidden md:block">
@@ -1423,6 +1502,489 @@ export const AdminConsoleModal: React.FC = () => {
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Tab 9: Moderation & Community Control */}
+              {activeTab === 'moderation' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-rose-400" />
+                        <span>コミュニティ・モデレーション ＆ 迷惑行為統括管理</span>
+                      </h3>
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        全楽曲の弾幕コメント監視、不適切な投稿の通報処理、荒らしアカウントの凍結をリアルタイムに統括します。
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={fetchModeration}
+                      className="px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-xs text-neutral-300 flex items-center gap-1.5 transition-colors cursor-pointer border border-neutral-800"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingModeration ? 'animate-spin' : ''}`} />
+                      <span>更新</span>
+                    </button>
+                  </div>
+
+                  {/* Summary Metric Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3.5 rounded-xl bg-neutral-900/60 border border-neutral-800">
+                      <span className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider">総コメント数</span>
+                      <p className="text-lg font-black text-white mt-0.5">{moderationData?.totalComments ?? 0}件</p>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-neutral-900/60 border border-neutral-800">
+                      <span className="text-[10px] text-rose-400 uppercase font-bold tracking-wider">未解決の通報</span>
+                      <p className="text-lg font-black text-rose-400 mt-0.5">
+                        {(moderationData?.reports || []).filter((r: any) => r.status === 'pending').length}件
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-neutral-900/60 border border-neutral-800">
+                      <span className="text-[10px] text-amber-400 uppercase font-bold tracking-wider">凍結中アカウント</span>
+                      <p className="text-lg font-black text-amber-300 mt-0.5">
+                        {(moderationData?.bannedUsers || []).length}件
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-neutral-900/60 border border-neutral-800">
+                      <span className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">稼働中ルーム</span>
+                      <p className="text-lg font-black text-emerald-300 mt-0.5">
+                        {moderationData?.totalRooms ?? 0}室
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Section 1: User Reports */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-rose-400" />
+                      <span>ユーザー通報キュー (Reports)</span>
+                    </h4>
+
+                    {(moderationData?.reports || []).length === 0 ? (
+                      <div className="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 text-center text-xs text-neutral-500">
+                        通報は現在ありません（健全な状態です）
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {(moderationData?.reports || []).map((rep: any) => (
+                          <div
+                            key={rep.id}
+                            className="p-3 rounded-xl bg-neutral-900/80 border border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                                  rep.status === 'pending'
+                                    ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                    : 'bg-neutral-800 text-neutral-400'
+                                }`}>
+                                  {rep.status === 'pending' ? '未対応' : rep.status === 'resolved' ? '解決済み' : '却下'}
+                                </span>
+                                <span className="text-neutral-400">対象者:</span>
+                                <span className="font-bold text-white font-mono">{rep.reportedUser}</span>
+                                <span className="text-neutral-500">•</span>
+                                <span className="text-rose-400 font-semibold">{rep.reason}</span>
+                              </div>
+                              {rep.contentSnippet && (
+                                <p className="text-neutral-300 italic bg-black/30 px-2 py-1 rounded">
+                                  「{rep.contentSnippet}」
+                                </p>
+                              )}
+                              <span className="text-[10px] text-neutral-500 font-mono mt-1 block">
+                                通報者: {rep.reporter} | {new Date(rep.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {rep.status === 'pending' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await api.resolveModerationReport(rep.id, 'resolved');
+                                      showToast('通報を解決済みにしました');
+                                      fetchModeration();
+                                    }}
+                                    className="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-semibold cursor-pointer"
+                                  >
+                                    解決
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await api.resolveModerationReport(rep.id, 'dismissed');
+                                      showToast('通報を却下しました');
+                                      fetchModeration();
+                                    }}
+                                    className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 rounded-lg text-xs cursor-pointer"
+                                  >
+                                    却下
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await api.toggleBanUser(rep.reportedUser);
+                                  showToast(`アカウント「${rep.reportedUser}」の停止状態を更新しました`);
+                                  fetchModeration();
+                                }}
+                                className="px-2.5 py-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-semibold cursor-pointer"
+                              >
+                                アカウント凍結
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 2: Recent Comments across all tracks */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
+                      <MessageSquare className="w-4 h-4 text-amber-400" />
+                      <span>全楽曲の直近弾幕コメント ({moderationData?.recentComments?.length || 0}件表示)</span>
+                    </h4>
+
+                    {(moderationData?.recentComments || []).length === 0 ? (
+                      <div className="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 text-center text-xs text-neutral-500">
+                        投稿されたコメントはまだありません
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-72 overflow-y-auto">
+                        {(moderationData?.recentComments || []).map((c: any) => (
+                          <div
+                            key={c.id}
+                            className="p-3 rounded-xl bg-neutral-900/80 border border-neutral-800 flex items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="px-1.5 py-0.2 rounded bg-neutral-800 font-mono text-[10px] text-red-400 font-bold">
+                                  {c.formattedTime}
+                                </span>
+                                <span className="font-bold text-white truncate">{c.username}</span>
+                                <span className="text-neutral-500 text-[10px] font-mono">
+                                  {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <p className="text-neutral-200 font-medium break-words">{c.text}</p>
+                              <span className="text-[10px] text-neutral-500 font-mono">動画ID: {c.videoId}</span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!confirm(`「${c.text}」を強制削除しますか？`)) return;
+                                await api.deleteComment(c.videoId, c.id, '', true);
+                                showToast('コメントを削除しました');
+                                fetchModeration();
+                              }}
+                              className="px-2.5 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>削除</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 3: Automated NG Word Rules */}
+                  <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-2">
+                    <h4 className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span>自動NGワードフィルター（サーバー自動伏字処理中）</span>
+                    </h4>
+                    <p className="text-xs text-neutral-400 leading-relaxed">
+                      以下の語句が含まれるコメントやメッセージは、投稿時に自動検知され『***』へ即時マスクされます。
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {(moderationData?.ngWords || []).map((word: string) => (
+                        <span key={word} className="px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 font-mono text-xs border border-neutral-700">
+                          {word}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 10: All User Direct Messages Surveillance & Audit (全ユーザーDM監査) */}
+              {activeTab === 'dms' && (
+                <div className="space-y-4">
+                  {/* Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-800">
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-purple-400" />
+                        <span>全ユーザー間ダイレクトメッセージ（DM）監視・監査</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                          管理者特権
+                        </span>
+                      </h3>
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        プラットフォーム上の全ユーザー間のDM送受信ログ、シェア楽曲、プレイリストをリアルタイムに閲覧・監査・強制削除できます。
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={fetchAdminDms}
+                      className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto shrink-0"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingAdminDms ? 'animate-spin' : ''}`} />
+                      <span>最新ログ取得</span>
+                    </button>
+                  </div>
+
+                  {/* Summary Metric Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-800/30">
+                      <div className="text-[11px] text-purple-300/80 font-medium">総DMメッセージ数</div>
+                      <div className="text-xl font-black text-white mt-1">
+                        {adminDmData?.totalMessages ?? 0} <span className="text-xs font-normal text-neutral-400">通</span>
+                      </div>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-800/30">
+                      <div className="text-[11px] text-purple-300/80 font-medium">対話スレッド数</div>
+                      <div className="text-xl font-black text-white mt-1">
+                        {adminDmData?.totalConversations ?? 0} <span className="text-xs font-normal text-neutral-400">ペア</span>
+                      </div>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-800/30 col-span-2 sm:col-span-1">
+                      <div className="text-[11px] text-purple-300/80 font-medium">監視監査ログ</div>
+                      <div className="text-xs font-mono font-semibold text-emerald-400 mt-2 flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>リアルタイム全数追跡中</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filter Search */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={dmSearchFilter}
+                      onChange={(e) => setDmSearchFilter(e.target.value)}
+                      placeholder="ユーザー名やメッセージ内容で検索・フィルタ..."
+                      className="w-full bg-neutral-900/90 border border-neutral-800 text-xs text-white pl-9 pr-4 py-2 rounded-xl focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  {/* Main Split View: Conversations List (Left) and Message Thread (Right) */}
+                  {(!adminDmData || adminDmData.conversations.length === 0) ? (
+                    <div className="p-12 text-center rounded-2xl bg-neutral-900/40 border border-neutral-800 space-y-2">
+                      <MessageSquare className="w-8 h-8 text-neutral-600 mx-auto" />
+                      <p className="text-sm font-semibold text-neutral-300">DMの送受信記録はまだありません</p>
+                      <p className="text-xs text-neutral-500">
+                        ユーザー間でメッセージがやり取りされると、すべての会話がここにリアルタイム表示されます。
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 min-h-[380px]">
+                      {/* Left: Threads Selector (5 cols) */}
+                      <div className="md:col-span-5 space-y-2 max-h-[460px] overflow-y-auto pr-1">
+                        <div className="text-[11px] font-bold text-neutral-400 px-1">
+                          スレッド一覧 ({adminDmData.conversations.length}件)
+                        </div>
+                        {adminDmData.conversations
+                          .filter((conv) => {
+                            if (!dmSearchFilter) return true;
+                            const q = dmSearchFilter.toLowerCase();
+                            const participantsMatch = conv.participants.some((p) => p.toLowerCase().includes(q));
+                            const contentMatch = conv.messages.some((m) =>
+                              (m.content || '').toLowerCase().includes(q) ||
+                              (m.trackCard?.title || '').toLowerCase().includes(q) ||
+                              (m.playlistCard?.name || '').toLowerCase().includes(q)
+                            );
+                            return participantsMatch || contentMatch;
+                          })
+                          .map((conv) => {
+                            const isSelected = selectedAdminConvId === conv.conversationId;
+                            const lastMsg = conv.messages[conv.messages.length - 1];
+                            return (
+                              <button
+                                key={conv.conversationId}
+                                type="button"
+                                onClick={() => setSelectedAdminConvId(conv.conversationId)}
+                                className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-purple-950/40 border-purple-500/60 shadow-lg shadow-purple-950/20'
+                                    : 'bg-neutral-900/60 border-neutral-800 hover:bg-neutral-900 hover:border-neutral-700'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <div className="flex items-center gap-1.5 font-bold text-white text-xs truncate">
+                                    <span className="text-purple-300">{conv.participants[0]}</span>
+                                    <span className="text-neutral-500 font-mono text-[10px]">↔</span>
+                                    <span className="text-purple-300">{conv.participants[1]}</span>
+                                  </div>
+                                  <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-[10px] font-mono text-neutral-400 shrink-0">
+                                    {conv.messageCount}通
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-neutral-400 line-clamp-1">
+                                  {lastMsg?.trackCard
+                                    ? `🎵 楽曲: ${lastMsg.trackCard.title}`
+                                    : lastMsg?.playlistCard
+                                    ? `📁 プレイリスト: ${lastMsg.playlistCard.name}`
+                                    : lastMsg?.content || '（カードメッセージ）'}
+                                </div>
+                                <div className="text-[10px] text-neutral-500 font-mono mt-1">
+                                  最終更新: {new Date(conv.lastTimestamp).toLocaleString([], {
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </div>
+
+                      {/* Right: Selected Conversation Details (7 cols) */}
+                      <div className="md:col-span-7 bg-neutral-900/80 border border-neutral-800 rounded-2xl flex flex-col overflow-hidden max-h-[460px]">
+                        {(() => {
+                          const activeConv = adminDmData.conversations.find(
+                            (c) => c.conversationId === selectedAdminConvId
+                          ) || adminDmData.conversations[0];
+
+                          if (!activeConv) {
+                            return (
+                              <div className="flex-1 flex items-center justify-center p-8 text-xs text-neutral-500">
+                                スレッドを選択してください
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <>
+                              {/* Selected Thread Header */}
+                              <div className="p-3 bg-neutral-950/80 border-b border-neutral-800 flex items-center justify-between shrink-0">
+                                <div>
+                                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                                    <span>{activeConv.participants[0]}</span>
+                                    <span className="text-neutral-500">↔</span>
+                                    <span>{activeConv.participants[1]}</span>
+                                  </div>
+                                  <div className="text-[10px] text-neutral-400 font-mono">
+                                    スレッドID: {activeConv.conversationId} ({activeConv.messages.length}件)
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Messages History List */}
+                              <div className="flex-1 p-3 overflow-y-auto space-y-2.5">
+                                {activeConv.messages.map((msg) => (
+                                  <div
+                                    key={msg.id}
+                                    className="p-3 rounded-xl bg-neutral-950/80 border border-neutral-800/80 text-xs space-y-1.5 relative group hover:border-neutral-700 transition-colors"
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-purple-300">{msg.sender}</span>
+                                        <span className="text-neutral-500 text-[10px]">➔</span>
+                                        <span className="text-neutral-400 text-[11px]">{msg.recipient}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-neutral-500 font-mono">
+                                          {new Date(msg.timestamp).toLocaleString([], {
+                                            month: '2-digit',
+                                            day: '2-digit',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                          })}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            if (!confirm(`送信者「${msg.sender}」のこのメッセージを強制削除しますか？`)) return;
+                                            try {
+                                              await api.deleteAdminDmMessage(msg.id);
+                                              showToast('メッセージを強制削除しました');
+                                              fetchAdminDms();
+                                            } catch (err: any) {
+                                              alert(err.message || '削除に失敗しました');
+                                            }
+                                          }}
+                                          className="p-1 text-neutral-500 hover:text-red-400 rounded hover:bg-neutral-800 transition-colors cursor-pointer"
+                                          title="管理者特権でこのメッセージを削除"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* Text content */}
+                                    {msg.content && (
+                                      <p className="text-neutral-200 leading-relaxed break-words bg-neutral-900/60 p-2 rounded-lg border border-neutral-800/50">
+                                        {msg.content}
+                                      </p>
+                                    )}
+
+                                    {/* Track Card Preview */}
+                                    {msg.trackCard && (
+                                      <div className="flex items-center gap-2.5 p-2 rounded-lg bg-neutral-900 border border-neutral-800">
+                                        <img
+                                          src={msg.trackCard.thumbnail}
+                                          alt=""
+                                          className="w-10 h-10 rounded-md object-cover shrink-0"
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                          <div className="text-[11px] font-bold text-white truncate">
+                                            {msg.trackCard.title}
+                                          </div>
+                                          <div className="text-[10px] text-neutral-400 truncate">
+                                            {msg.trackCard.artist}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Playlist Card Preview */}
+                                    {msg.playlistCard && (
+                                      <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <div className="text-[11px] font-bold text-white truncate">
+                                            📁 {msg.playlistCard.name}
+                                          </div>
+                                          <div className="text-[10px] text-neutral-400">
+                                            作成者: {msg.playlistCard.author} • {msg.playlistCard.trackCount}曲
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Reactions */}
+                                    {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                                      <div className="flex flex-wrap gap-1 pt-1">
+                                        {Object.entries(msg.reactions).map(([emoji, users]) => (
+                                          <span
+                                            key={emoji}
+                                            className="px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[10px] text-neutral-300"
+                                            title={`リアクション: ${(users as string[]).join(', ')}`}
+                                          >
+                                            {emoji} {(users as string[]).length}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

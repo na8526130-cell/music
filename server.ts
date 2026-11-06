@@ -1,4 +1,6 @@
 import express from 'express';
+import http from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
@@ -165,7 +167,175 @@ async function startServer() {
     }
   });
 
-  // Explore: Home feed, Trending, New Releases, Moods & Genres
+  // ==========================================
+  // Oricon Chart Service & In-Memory Cache
+  // ==========================================
+  interface OriconItem {
+    id: string;
+    rank: number;
+    title: string;
+    artist: string;
+    metric?: string;
+    thumbnail: string;
+    duration?: string;
+    durationSeconds?: number;
+    rankType: 'streaming' | 'digital';
+  }
+
+  let oriconStreamingCache: { timestamp: number; items: OriconItem[] } | null = null;
+  let oriconDigitalCache: { timestamp: number; items: OriconItem[] } | null = null;
+  const ORICON_CACHE_TTL = 1000 * 60 * 60; // 1 hour cache
+
+  // Fallback Oricon Hits in case of network timeout
+  const FALLBACK_ORICON_STREAMING = [
+    { rank: 1, title: 'ラブリーズン', artist: '原因は自分にある。', metric: '再生数：8,897,147回' },
+    { rank: 2, title: 'しわあわせ', artist: 'Vaundy', metric: '再生数：7,230,000回' },
+    { rank: 3, title: 'Yes! 東京', artist: '超特急 / M!LK / 原因は自分にある。', metric: '再生数：6,850,000回' },
+    { rank: 4, title: 'ザッツ!超常', artist: 'M!LK', metric: '再生数：6,120,000回' },
+    { rank: 5, title: '結び', artist: 'ヨルシカ', metric: '再生数：5,940,000回' },
+    { rank: 6, title: 'ライラック', artist: 'Mrs. GREEN APPLE', metric: '再生数：5,810,000回' },
+    { rank: 7, title: 'Bling-Bang-Bang-Born', artist: 'Creepy Nuts', metric: '再生数：5,420,000回' },
+    { rank: 8, title: '幾億光年', artist: 'Omoinotake', metric: '再生数：4,910,000回' },
+    { rank: 9, title: '怪獣の花唄', artist: 'Vaundy', metric: '再生数：4,650,000回' },
+    { rank: 10, title: 'アイドル', artist: 'YOASOBI', metric: '再生数：4,300,000回' },
+  ];
+
+  const FALLBACK_ORICON_DIGITAL = [
+    { rank: 1, title: 'チェックメイト', artist: 'Travis Japan', metric: 'ダウンロード数：30,747DL' },
+    { rank: 2, title: 'ザッツ!超常', artist: 'M!LK', metric: 'ダウンロード数：20,593DL' },
+    { rank: 3, title: 'Slidin', artist: 'HANA', metric: 'ダウンロード数：5,440DL' },
+    { rank: 4, title: 'Slam Dunk', artist: 'STARGLOW', metric: 'ダウンロード数：4,926DL' },
+    { rank: 5, title: '咲き誇れ', artist: 'YOASOBI', metric: 'ダウンロード数：4,062DL' },
+    { rank: 6, title: '娑婆堕罵 -Shabadaba-', artist: 'RADWIMPS', metric: 'ダウンロード数：3,933DL' },
+    { rank: 7, title: '再会愛 Lie 期待して Cry', artist: 'Hey! Say! JUMP', metric: 'ダウンロード数：3,880DL' },
+    { rank: 8, title: '雲を抜け風下へ私だけ', artist: 'ヨルシカ', metric: 'ダウンロード数：3,024DL' },
+    { rank: 9, title: 'You’re Under Arrest', artist: 'ILLIT', metric: 'ダウンロード数：2,150DL' },
+    { rank: 10, title: 'それなのに', artist: 'Uru', metric: 'ダウンロード数：2,067DL' },
+  ];
+
+  async function fetchOriconRawChart(type: 'streaming' | 'digital'): Promise<Array<{ rank: number; title: string; artist: string; metric: string }>> {
+    const url = type === 'streaming' ? 'https://www.oricon.co.jp/rank/st/w/' : 'https://www.oricon.co.jp/rank/dis/w/';
+    try {
+      const resp = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+        },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const buf = await resp.arrayBuffer();
+      const decoder = new TextDecoder('shift_jis');
+      const html = decoder.decode(buf);
+
+      const entryMatches = html.match(/<section class=\"box-rank-entry[\s\S]*?<\/section>/g) || [];
+      const parsed: Array<{ rank: number; title: string; artist: string; metric: string }> = [];
+
+      for (const entry of entryMatches) {
+        const rankMatch = entry.match(/<p class=\"num [^\"]*\">(\d+)<\/p>/);
+        const titleMatch = entry.match(/class=\"(?:nolink )?title\"[^>]*>([^<]+)<\/h2>/) || entry.match(/itemprop=\"name\">([^<]+)<\/h2>/);
+        const artistMatch = entry.match(/class=\"(?:alink )?name\"[^>]*>([^<]+)<\/p>/);
+        const metricMatch = entry.match(/<li>(再生数|DL数|ダウンロード数)[：:]([^<]+)<\/li>/);
+
+        const rank = rankMatch ? parseInt(rankMatch[1], 10) : parsed.length + 1;
+        const title = titleMatch ? titleMatch[1].trim() : '';
+        const artist = artistMatch ? artistMatch[1].trim() : '';
+        const metric = metricMatch ? metricMatch[0].replace(/<[^>]+>/g, '').trim() : '';
+
+        if (title) {
+          parsed.push({ rank, title, artist, metric });
+        }
+      }
+
+      if (parsed.length > 0) return parsed;
+    } catch (err: any) {
+      console.warn(`[Oricon] Failed to scrape ${type} chart:`, err.message);
+    }
+    return type === 'streaming' ? FALLBACK_ORICON_STREAMING : FALLBACK_ORICON_DIGITAL;
+  }
+
+  async function getOriconChart(type: 'streaming' | 'digital' = 'streaming'): Promise<OriconItem[]> {
+    const cache = type === 'streaming' ? oriconStreamingCache : oriconDigitalCache;
+    const now = Date.now();
+    if (cache && now - cache.timestamp < ORICON_CACHE_TTL && cache.items.length > 0) {
+      return cache.items;
+    }
+
+    const rawEntries = await fetchOriconRawChart(type);
+    let yt: any = null;
+    try {
+      yt = await getInnertube();
+    } catch {
+      // ignore
+    }
+
+    const items: OriconItem[] = await Promise.all(
+      rawEntries.slice(0, 10).map(async (raw) => {
+        if (yt) {
+          try {
+            const searchQuery = `${raw.title} ${raw.artist}`.trim();
+            const searchPromise = yt.music.search(searchQuery, { type: 'song' });
+            const timeoutPromise = new Promise<null>((r) => setTimeout(() => r(null), 2500));
+            const searchRes: any = await Promise.race([searchPromise, timeoutPromise]);
+            const topSong = searchRes?.songs?.contents?.[0];
+
+            if (topSong && topSong.id) {
+              return {
+                id: topSong.id,
+                rank: raw.rank,
+                title: raw.title,
+                artist: raw.artist || (topSong as any).artists?.[0]?.name || 'Unknown Artist',
+                artistId: (topSong as any).artists?.[0]?.id,
+                metric: raw.metric,
+                thumbnail: getBestThumbnail((topSong as any).thumbnails || []),
+                duration: (topSong as any).duration?.text || '',
+                durationSeconds: parseDurationToSeconds((topSong as any).duration?.text || ''),
+                rankType: type,
+              };
+            }
+          } catch {
+            // fallback
+          }
+        }
+        return {
+          id: `oricon_${type}_${raw.rank}`,
+          rank: raw.rank,
+          title: raw.title,
+          artist: raw.artist,
+          metric: raw.metric,
+          thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&h=300&fit=crop',
+          rankType: type,
+        };
+      })
+    );
+
+    const resultCache = { timestamp: now, items };
+    if (type === 'streaming') {
+      oriconStreamingCache = resultCache;
+    } else {
+      oriconDigitalCache = resultCache;
+    }
+
+    return items;
+  }
+
+  // Dedicated Oricon Ranking Endpoint
+  app.get('/api/music/oricon', async (req, res) => {
+    try {
+      const type = (req.query.type === 'digital' ? 'digital' : 'streaming') as 'streaming' | 'digital';
+      const items = await getOriconChart(type);
+      res.json({
+        type,
+        chartName: type === 'streaming' ? 'オリコン週間ストリーミングランキング' : 'オリコン週間デジタルシングル(単曲)ランキング',
+        updatedAt: new Date().toISOString(),
+        items,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Explore: Home feed, Trending, New Releases, Moods & Genres, Oricon Rankings
   app.get('/api/music/explore', async (_req, res) => {
     const startTime = Date.now();
     try {
@@ -256,11 +426,18 @@ async function startServer() {
         itemCount: trendingSongs.length + newReleases.length,
       });
 
+      const [oriconRanking, oriconDigital] = await Promise.all([
+        getOriconChart('streaming').catch(() => []),
+        getOriconChart('digital').catch(() => []),
+      ]);
+
       res.json({
         trending: trendingSongs,
         newReleases,
         moodsAndGenres: moodsAndGenres.slice(0, 16),
         musicVideos,
+        oriconRanking,
+        oriconDigital,
       });
     } catch (err: any) {
       const durationMs = Date.now() - startTime;
@@ -1369,7 +1546,51 @@ async function startServer() {
     }
   });
 
-  // Official髭男dism Featured Spotlight
+  // Single Track Info (for share URLs /?track=xxxx and direct loading)
+  app.get('/api/music/track/:id', async (req, res) => {
+    const videoId = String(req.params.id || '').trim();
+    if (!videoId) return res.status(400).json({ error: 'Video ID is required' });
+    const startTime = Date.now();
+
+    try {
+      const yt = await getInnertube();
+      const info = await yt.getBasicInfo(videoId);
+      const basic = info.basic_info;
+
+      const durSec = basic?.duration || 0;
+      const durText = durSec > 0
+        ? `${Math.floor(durSec / 60)}:${String(durSec % 60).padStart(2, '0')}`
+        : '0:00';
+
+      const track = {
+        id: basic?.id || videoId,
+        title: basic?.title || 'Unknown Title',
+        artist: basic?.author || 'Unknown Artist',
+        duration: durText,
+        durationSeconds: durSec,
+        thumbnail: getBestThumbnail(basic?.thumbnail || []),
+      };
+
+      recordLog({
+        endpoint: 'music.getTrack',
+        params: { videoId },
+        durationMs: Date.now() - startTime,
+        status: 'success',
+        itemCount: 1,
+      });
+
+      res.json({ track });
+    } catch (err: any) {
+      recordLog({
+        endpoint: 'music.getTrack',
+        params: { videoId },
+        durationMs: Date.now() - startTime,
+        status: 'error',
+        error: err.message,
+      });
+      res.status(500).json({ error: err.message });
+    }
+  });
   let higedanCache: any = null;
   let higedanCacheTime = 0;
 
@@ -1785,15 +2006,248 @@ async function startServer() {
     playbackErrors: PlaybackErrorLog[];
   }
 
+  interface StoredSharedPlaylist {
+    id: string;
+    name: string;
+    author?: string;
+    tracks: any[];
+    createdAt: string;
+    viewCount: number;
+  }
+
+  interface TrackComment {
+    id: string;
+    videoId: string;
+    timestampSec: number;
+    formattedTime: string;
+    text: string;
+    username: string;
+    userAvatar?: string;
+    createdAt: string;
+    likes: number;
+    likedBy: string[];
+    color?: string;
+  }
+
+  interface DirectMessage {
+    id: string;
+    conversationId: string;
+    sender: string;
+    recipient: string;
+    content?: string;
+    trackCard?: {
+      videoId: string;
+      title: string;
+      artist: string;
+      thumbnail: string;
+      duration?: string;
+    };
+    playlistCard?: {
+      id: string;
+      name: string;
+      author: string;
+      trackCount: number;
+      thumbnail?: string;
+      tracks: any[];
+    };
+    timestamp: string;
+    read: boolean;
+    reactions: Record<string, string[]>;
+  }
+
+  interface ListeningPartyRoom {
+    id: string;
+    name: string;
+    description: string;
+    category: 'rock' | 'chill' | 'vocaloid' | 'free' | 'custom';
+    hostUsername: string;
+    currentTrack: any | null;
+    isPlaying: boolean;
+    positionSec: number;
+    updatedAt: number;
+    participants: {
+      username: string;
+      joinedAt: string;
+      isHost: boolean;
+      nowPlaying?: string;
+    }[];
+    chatMessages: {
+      id: string;
+      username: string;
+      text: string;
+      timestamp: string;
+      type: 'chat' | 'system' | 'track_change';
+    }[];
+  }
+
+  interface SocialNotification {
+    id: string;
+    recipient: string;
+    sender: string;
+    type: 'dm' | 'comment_like' | 'room_invite' | 'follow' | 'broadcast';
+    title: string;
+    body: string;
+    data?: any;
+    timestamp: string;
+    read: boolean;
+  }
+
+  interface ModerationReport {
+    id: string;
+    reporter: string;
+    reportedUser: string;
+    targetType: 'comment' | 'message' | 'room';
+    targetId: string;
+    reason: string;
+    contentSnippet?: string;
+    timestamp: string;
+    status: 'pending' | 'resolved' | 'dismissed';
+  }
+
+  interface ActivityFeedItem {
+    id: string;
+    username: string;
+    action: 'played' | 'commented' | 'created_playlist' | 'liked';
+    targetTitle: string;
+    targetSubtitle?: string;
+    targetId?: string;
+    thumbnail?: string;
+    timestamp: string;
+  }
+
   interface StoredState {
     totalAccessCount: number;
     accounts: StoredAccount[];
     notifications: StoredNotification[];
     trackOffsets: Record<string, { offsetSec: number; title?: string; updatedAt: string }>;
+    sharedPlaylists: Record<string, StoredSharedPlaylist>;
+    trackComments: Record<string, TrackComment[]>;
+    directMessages: DirectMessage[];
+    listeningRooms: Record<string, ListeningPartyRoom>;
+    socialNotifications: SocialNotification[];
+    moderationReports: ModerationReport[];
+    blockedUsers: Record<string, string[]>;
+    follows: Record<string, string[]>;
+    activityFeed: ActivityFeedItem[];
+    bannedUsers: string[];
     analytics: StoredAnalytics;
   }
 
   const ADMIN_PASSWORD = '@zeromusic';
+  const DEFAULT_NG_WORDS = ['死ね', '殺す', 'キエロ', 'クソ野郎', 'ゴミ屑', '詐欺サイト', 'spam.link'];
+
+  function sanitizeText(text: string): { sanitized: string; flagged: boolean } {
+    let flagged = false;
+    let result = text || '';
+    for (const word of DEFAULT_NG_WORDS) {
+      if (result.includes(word)) {
+        flagged = true;
+        const mask = '*'.repeat(word.length);
+        result = result.split(word).join(mask);
+      }
+    }
+    return { sanitized: result, flagged };
+  }
+
+  function defaultListeningRooms(): Record<string, ListeningPartyRoom> {
+    const now = Date.now();
+    return {
+      room_rock: {
+        id: 'room_rock',
+        name: '🎸 邦ロック・オルタナ熱血ラウンジ',
+        description: '邦ロック・オルタナティブ・ギターロックの熱い曲をみんなで同時試聴して語り合う部屋',
+        category: 'rock',
+        hostUsername: 'RockMaster_Ken',
+        currentTrack: {
+          id: 'GBRk_8hP47w',
+          title: '怪獣の花唄',
+          artist: 'Vaundy',
+          thumbnail: 'https://i.ytimg.com/vi/GBRk_8hP47w/hqdefault.jpg',
+          duration: '3:45',
+          durationSeconds: 225,
+        },
+        isPlaying: true,
+        positionSec: 42,
+        updatedAt: now,
+        participants: [
+          { username: 'RockMaster_Ken', joinedAt: new Date(now - 3600000).toISOString(), isHost: true },
+          { username: 'GuitarLover', joinedAt: new Date(now - 1200000).toISOString(), isHost: false },
+          { username: 'Aoi_Music', joinedAt: new Date(now - 600000).toISOString(), isHost: false },
+        ],
+        chatMessages: [
+          { id: 'm1', username: 'RockMaster_Ken', text: '怪獣の花唄！このサビの爆発力やばいよね', timestamp: new Date(now - 180000).toISOString(), type: 'chat' },
+          { id: 'm2', username: 'GuitarLover', text: '02:15のギターフレーズ神がかってる', timestamp: new Date(now - 90000).toISOString(), type: 'chat' },
+        ],
+      },
+      room_chill: {
+        id: 'room_chill',
+        name: '☕ 深夜のチル・Lo-Fi & R&B',
+        description: '作業用BGMや夜更かしにぴったりの心地よいチルサウンドをまったり共有',
+        category: 'chill',
+        hostUsername: 'MidnightChill',
+        currentTrack: {
+          id: 'jfKfPfyJRdk',
+          title: 'lofi hip hop radio - beats to relax/study to',
+          artist: 'Lofi Girl',
+          thumbnail: 'https://i.ytimg.com/vi/jfKfPfyJRdk/hqdefault.jpg',
+          duration: 'Live',
+          durationSeconds: 3600,
+        },
+        isPlaying: true,
+        positionSec: 120,
+        updatedAt: now,
+        participants: [
+          { username: 'MidnightChill', joinedAt: new Date(now - 7200000).toISOString(), isHost: true },
+          { username: 'StudyMode', joinedAt: new Date(now - 2400000).toISOString(), isHost: false },
+        ],
+        chatMessages: [
+          { id: 'm3', username: 'MidnightChill', text: '今夜も落ち着いて作業しましょう〜', timestamp: new Date(now - 200000).toISOString(), type: 'chat' },
+        ],
+      },
+      room_vocaloid: {
+        id: 'room_vocaloid',
+        name: '🎤 ボカロ & アニソン解放区',
+        description: 'ボーカロイドや人気アニメ主題歌、神調教・神メロディを語り合うルーム',
+        category: 'vocaloid',
+        hostUsername: 'MikuFan_99',
+        currentTrack: {
+          id: 'cm-l2h6GB8Q',
+          title: 'メルト',
+          artist: 'supercell feat. 初音ミク',
+          thumbnail: 'https://i.ytimg.com/vi/cm-l2h6GB8Q/hqdefault.jpg',
+          duration: '4:15',
+          durationSeconds: 255,
+        },
+        isPlaying: true,
+        positionSec: 75,
+        updatedAt: now,
+        participants: [
+          { username: 'MikuFan_99', joinedAt: new Date(now - 1800000).toISOString(), isHost: true },
+          { username: 'RinLen', joinedAt: new Date(now - 900000).toISOString(), isHost: false },
+        ],
+        chatMessages: [
+          { id: 'm4', username: 'MikuFan_99', text: '伝説の神曲。イントロだけで鳥肌立つ', timestamp: new Date(now - 120000).toISOString(), type: 'chat' },
+        ],
+      },
+      room_free: {
+        id: 'room_free',
+        name: '🎧 オールジャンル・フリーセッション',
+        description: 'ジャンル問わず好きな曲を自由に流して新しい音楽と出会うオープンスペース',
+        category: 'free',
+        hostUsername: 'DJ_Zero',
+        currentTrack: null,
+        isPlaying: false,
+        positionSec: 0,
+        updatedAt: now,
+        participants: [
+          { username: 'DJ_Zero', joinedAt: new Date(now - 600000).toISOString(), isHost: true },
+        ],
+        chatMessages: [
+          { id: 'm5', username: 'DJ_Zero', text: '誰でもおすすめ曲を流してください！', timestamp: new Date(now - 300000).toISOString(), type: 'system' },
+        ],
+      },
+    };
+  }
 
   function defaultAnalytics(): StoredAnalytics {
     return {
@@ -1848,6 +2302,18 @@ async function startServer() {
           accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
           notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
           trackOffsets: parsed.trackOffsets && typeof parsed.trackOffsets === 'object' ? parsed.trackOffsets : {},
+          sharedPlaylists: parsed.sharedPlaylists && typeof parsed.sharedPlaylists === 'object' ? parsed.sharedPlaylists : {},
+          trackComments: parsed.trackComments && typeof parsed.trackComments === 'object' ? parsed.trackComments : {},
+          directMessages: Array.isArray(parsed.directMessages) ? parsed.directMessages : [],
+          listeningRooms: parsed.listeningRooms && typeof parsed.listeningRooms === 'object' && Object.keys(parsed.listeningRooms).length > 0
+            ? parsed.listeningRooms
+            : defaultListeningRooms(),
+          socialNotifications: Array.isArray(parsed.socialNotifications) ? parsed.socialNotifications : [],
+          moderationReports: Array.isArray(parsed.moderationReports) ? parsed.moderationReports : [],
+          blockedUsers: parsed.blockedUsers && typeof parsed.blockedUsers === 'object' ? parsed.blockedUsers : {},
+          follows: parsed.follows && typeof parsed.follows === 'object' ? parsed.follows : {},
+          activityFeed: Array.isArray(parsed.activityFeed) ? parsed.activityFeed : [],
+          bannedUsers: Array.isArray(parsed.bannedUsers) ? parsed.bannedUsers : [],
           analytics: parsed.analytics && typeof parsed.analytics === 'object' ? {
             ...defaultAnalytics(),
             ...parsed.analytics,
@@ -1864,6 +2330,16 @@ async function startServer() {
       accounts: [],
       notifications: [],
       trackOffsets: {},
+      sharedPlaylists: {},
+      trackComments: {},
+      directMessages: [],
+      listeningRooms: defaultListeningRooms(),
+      socialNotifications: [],
+      moderationReports: [],
+      blockedUsers: {},
+      follows: {},
+      activityFeed: [],
+      bannedUsers: [],
       analytics: defaultAnalytics(),
     };
   }
@@ -2215,6 +2691,71 @@ async function startServer() {
         totalAccountsCount: appState.accounts.length,
       },
     });
+  });
+
+  // Create or publish a shareable playlist link
+  app.post('/api/share/playlist', (req, res) => {
+    const { name, author, tracks } = req.body;
+    const cleanName = String(name || '').trim();
+    if (!cleanName) {
+      return res.status(400).json({ error: 'プレイリスト名を入力してください' });
+    }
+    const cleanTracks = Array.isArray(tracks) ? tracks : [];
+    if (!cleanTracks.length) {
+      return res.status(400).json({ error: '1曲以上の楽曲が必要です' });
+    }
+
+    const shareId = `pl_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+    const newSharedPlaylist: StoredSharedPlaylist = {
+      id: shareId,
+      name: cleanName,
+      author: String(author || 'ゲスト').trim(),
+      tracks: cleanTracks,
+      createdAt: new Date().toISOString(),
+      viewCount: 0,
+    };
+
+    if (!appState.sharedPlaylists) {
+      appState.sharedPlaylists = {};
+    }
+    appState.sharedPlaylists[shareId] = newSharedPlaylist;
+    saveStorage();
+
+    res.json({
+      success: true,
+      shareId,
+      shareUrl: `/?share_pl=${shareId}`,
+      playlist: newSharedPlaylist,
+    });
+  });
+
+  // Get shared playlist by ID (open for all users, no login required)
+  app.get('/api/share/playlist/:id', (req, res) => {
+    const shareId = String(req.params.id || '').trim();
+    if (!shareId) {
+      return res.status(400).json({ error: '共有IDを指定してください' });
+    }
+
+    const playlist = appState.sharedPlaylists?.[shareId];
+    if (!playlist) {
+      return res.status(404).json({ error: '共有プレイリストが見つかりませんでした。URLをご確認ください。' });
+    }
+
+    playlist.viewCount = (playlist.viewCount || 0) + 1;
+    saveStorage();
+
+    res.json({
+      success: true,
+      playlist,
+    });
+  });
+
+  // Get recently shared community playlists
+  app.get('/api/share/recent', (_req, res) => {
+    const list = Object.values(appState.sharedPlaylists || {})
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
+    res.json({ playlists: list });
   });
 
   // Send notification to account's email
@@ -2573,6 +3114,959 @@ async function startServer() {
     res.json({ success: true, message: '歌詞キャッシュを消去しました' });
   });
 
+  // Helper to record activity feed item
+  function recordActivity(item: Omit<ActivityFeedItem, 'id' | 'timestamp'>) {
+    const entry: ActivityFeedItem = {
+      id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      ...item,
+    };
+    appState.activityFeed.unshift(entry);
+    if (appState.activityFeed.length > 200) {
+      appState.activityFeed.splice(200);
+    }
+    return entry;
+  }
+
+  // Helper to send in-app social notification
+  function sendSocialNotification(notif: Omit<SocialNotification, 'id' | 'timestamp' | 'read'>) {
+    const entry: SocialNotification = {
+      id: `snotif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      read: false,
+      ...notif,
+    };
+    appState.socialNotifications.unshift(entry);
+    if (appState.socialNotifications.length > 500) {
+      appState.socialNotifications.splice(500);
+    }
+    // Push via websocket if recipient connected
+    broadcastToUser(notif.recipient, {
+      type: 'notification:new',
+      notification: entry,
+    });
+    return entry;
+  }
+
+  // --- Real-time WebSocket Server Setup ---
+  const server = http.createServer(app);
+  const wss = new WebSocketServer({ server });
+
+  interface WsClientMeta {
+    username?: string;
+    sessionId?: string;
+    currentRoomId?: string;
+    currentVideoId?: string;
+    nowPlaying?: { title: string; artist: string; videoId: string };
+  }
+
+  const wsClients = new Map<WebSocket, WsClientMeta>();
+
+  function broadcast(data: any) {
+    const msg = JSON.stringify(data);
+    for (const [client, meta] of wsClients.entries()) {
+      if (client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(msg);
+        } catch {}
+      }
+    }
+  }
+
+  function broadcastToUser(targetUsername: string, data: any) {
+    if (!targetUsername) return;
+    const clean = targetUsername.toLowerCase();
+    const msg = JSON.stringify(data);
+    for (const [client, meta] of wsClients.entries()) {
+      if (meta.username && meta.username.toLowerCase() === clean && client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(msg);
+        } catch {}
+      }
+    }
+  }
+
+  function broadcastToRoom(roomId: string, data: any) {
+    const msg = JSON.stringify(data);
+    for (const [client, meta] of wsClients.entries()) {
+      if (meta.currentRoomId === roomId && client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(msg);
+        } catch {}
+      }
+    }
+  }
+
+  function broadcastToVideo(videoId: string, data: any) {
+    const msg = JSON.stringify(data);
+    for (const [client, meta] of wsClients.entries()) {
+      if (meta.currentVideoId === videoId && client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(msg);
+        } catch {}
+      }
+    }
+  }
+
+  function broadcastPresence() {
+    const usersList: any[] = [];
+    const seen = new Set<string>();
+    for (const meta of wsClients.values()) {
+      if (meta.username && !seen.has(meta.username.toLowerCase())) {
+        seen.add(meta.username.toLowerCase());
+        usersList.push({
+          username: meta.username,
+          online: true,
+          nowPlaying: meta.nowPlaying,
+        });
+      }
+    }
+    broadcast({
+      type: 'presence:update',
+      onlineCount: getOnlineCount(),
+      activeUsers: usersList,
+    });
+  }
+
+  wss.on('connection', (ws: WebSocket) => {
+    wsClients.set(ws, {});
+
+    // Initial greeting & active presence count
+    ws.send(JSON.stringify({
+      type: 'welcome',
+      onlineCount: getOnlineCount(),
+      timestamp: Date.now(),
+    }));
+
+    ws.on('message', (message: string) => {
+      try {
+        const payload = JSON.parse(message.toString());
+        const meta = wsClients.get(ws) || {};
+
+        switch (payload.type) {
+          case 'auth': {
+            meta.username = payload.username;
+            meta.sessionId = payload.sessionId;
+            wsClients.set(ws, meta);
+            broadcastPresence();
+            break;
+          }
+
+          case 'presence': {
+            if (payload.username) meta.username = payload.username;
+            meta.nowPlaying = payload.nowPlaying;
+            meta.currentVideoId = payload.nowPlaying?.videoId;
+            wsClients.set(ws, meta);
+            broadcastPresence();
+            break;
+          }
+
+          case 'watch:video': {
+            meta.currentVideoId = payload.videoId;
+            wsClients.set(ws, meta);
+            break;
+          }
+
+          case 'party:join': {
+            meta.currentRoomId = payload.roomId;
+            wsClients.set(ws, meta);
+            const room = appState.listeningRooms[payload.roomId];
+            if (room && payload.username) {
+              const existingIdx = room.participants.findIndex((p) => p.username === payload.username);
+              if (existingIdx === -1) {
+                room.participants.push({
+                  username: payload.username,
+                  joinedAt: new Date().toISOString(),
+                  isHost: room.participants.length === 0 || room.hostUsername === payload.username,
+                });
+                room.chatMessages.push({
+                  id: `sys_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                  username: 'System',
+                  text: `${payload.username} さんが入室しました`,
+                  timestamp: new Date().toISOString(),
+                  type: 'system',
+                });
+                saveStorage();
+              }
+              broadcastToRoom(payload.roomId, {
+                type: 'party:room_state',
+                room,
+              });
+            }
+            break;
+          }
+
+          case 'party:leave': {
+            const roomId = meta.currentRoomId;
+            if (roomId && appState.listeningRooms[roomId] && meta.username) {
+              const room = appState.listeningRooms[roomId];
+              room.participants = room.participants.filter((p) => p.username !== meta.username);
+              room.chatMessages.push({
+                id: `sys_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                username: 'System',
+                text: `${meta.username} さんが退室しました`,
+                timestamp: new Date().toISOString(),
+                type: 'system',
+              });
+              saveStorage();
+              broadcastToRoom(roomId, {
+                type: 'party:room_state',
+                room,
+              });
+            }
+            meta.currentRoomId = undefined;
+            wsClients.set(ws, meta);
+            break;
+          }
+
+          case 'party:sync': {
+            // Host sends playback state
+            const roomId = meta.currentRoomId || payload.roomId;
+            const room = appState.listeningRooms[roomId];
+            if (room) {
+              if (payload.currentTrack !== undefined) room.currentTrack = payload.currentTrack;
+              if (payload.isPlaying !== undefined) room.isPlaying = Boolean(payload.isPlaying);
+              if (payload.positionSec !== undefined) room.positionSec = Number(payload.positionSec);
+              room.updatedAt = Date.now();
+
+              if (payload.trackChanged && payload.currentTrack) {
+                room.chatMessages.push({
+                  id: `tc_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                  username: meta.username || room.hostUsername,
+                  text: `🎵 再生曲変更: ${payload.currentTrack.title} - ${payload.currentTrack.artist}`,
+                  timestamp: new Date().toISOString(),
+                  type: 'track_change',
+                });
+                if (room.chatMessages.length > 200) room.chatMessages.splice(0, room.chatMessages.length - 200);
+              }
+
+              saveStorage();
+              broadcastToRoom(roomId, {
+                type: 'party:playback_sync',
+                currentTrack: room.currentTrack,
+                isPlaying: room.isPlaying,
+                positionSec: room.positionSec,
+                updatedAt: room.updatedAt,
+                sender: meta.username,
+              });
+            }
+            break;
+          }
+
+          case 'party:chat': {
+            const roomId = meta.currentRoomId || payload.roomId;
+            const room = appState.listeningRooms[roomId];
+            if (room && payload.text) {
+              const { sanitized } = sanitizeText(payload.text);
+              const chatMsg = {
+                id: `chat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                username: meta.username || payload.username || '匿名リスナー',
+                text: sanitized,
+                timestamp: new Date().toISOString(),
+                type: 'chat' as const,
+              };
+              room.chatMessages.push(chatMsg);
+              if (room.chatMessages.length > 200) room.chatMessages.splice(0, room.chatMessages.length - 200);
+              saveStorage();
+              broadcastToRoom(roomId, {
+                type: 'party:new_chat',
+                roomId,
+                message: chatMsg,
+              });
+            }
+            break;
+          }
+
+          case 'dm:typing': {
+            broadcastToUser(payload.recipient, {
+              type: 'dm:typing',
+              sender: meta.username,
+            });
+            break;
+          }
+        }
+      } catch (err) {
+        console.warn('[WebSocket] Message handling error:', err);
+      }
+    });
+
+    ws.on('close', () => {
+      const meta = wsClients.get(ws);
+      if (meta?.currentRoomId && appState.listeningRooms[meta.currentRoomId] && meta.username) {
+        const room = appState.listeningRooms[meta.currentRoomId];
+        room.participants = room.participants.filter((p) => p.username !== meta.username);
+        saveStorage();
+        broadcastToRoom(meta.currentRoomId, {
+          type: 'party:room_state',
+          room,
+        });
+      }
+      wsClients.delete(ws);
+      broadcastPresence();
+    });
+  });
+
+  // --- REST API: Track Comments & Danmaku (弾幕) ---
+  app.get('/api/comments/:videoId', (req, res) => {
+    const { videoId } = req.params;
+    const comments = appState.trackComments[videoId] || [];
+    res.json({ comments });
+  });
+
+  app.post('/api/comments/:videoId', (req, res) => {
+    const { videoId } = req.params;
+    const { text, timestampSec, formattedTime, username, color } = req.body;
+    const cleanUser = String(username || 'ゲストリスナー').trim();
+    const rawText = String(text || '').trim();
+
+    if (!rawText) {
+      return res.status(400).json({ error: 'コメント内容を入力してください' });
+    }
+
+    if (appState.bannedUsers.includes(cleanUser.toLowerCase())) {
+      return res.status(403).json({ error: 'アカウントがモデレーションにより停止されています' });
+    }
+
+    const { sanitized, flagged } = sanitizeText(rawText);
+    const secs = Math.max(0, Number(timestampSec) || 0);
+
+    const newComment: TrackComment = {
+      id: `cmt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      videoId,
+      timestampSec: secs,
+      formattedTime: formattedTime || `${Math.floor(secs / 60)}:${(secs % 60).toString().padStart(2, '0')}`,
+      text: sanitized,
+      username: cleanUser,
+      createdAt: new Date().toISOString(),
+      likes: 0,
+      likedBy: [],
+      color: color || '#FFFFFF',
+    };
+
+    if (!appState.trackComments[videoId]) {
+      appState.trackComments[videoId] = [];
+    }
+    appState.trackComments[videoId].push(newComment);
+    if (appState.trackComments[videoId].length > 300) {
+      appState.trackComments[videoId].shift();
+    }
+
+    // Record activity
+    recordActivity({
+      username: cleanUser,
+      action: 'commented',
+      targetTitle: req.body.trackTitle || videoId,
+      targetSubtitle: `${newComment.formattedTime} - ${sanitized}`,
+      targetId: videoId,
+    });
+
+    saveStorage();
+
+    // Broadcast in real-time to everyone watching/listening to this track or room
+    const broadcastPayload = {
+      type: 'comment:new',
+      videoId,
+      comment: newComment,
+    };
+    broadcastToVideo(videoId, broadcastPayload);
+    broadcast(broadcastPayload); // also broad to notify active danmaku layers
+
+    res.json({ success: true, comment: newComment, flagged });
+  });
+
+  app.post('/api/comments/:videoId/:id/like', (req, res) => {
+    const { videoId, id } = req.params;
+    const { username } = req.body;
+    const cleanUser = String(username || 'ゲスト').trim();
+
+    const comments = appState.trackComments[videoId] || [];
+    const target = comments.find((c) => c.id === id);
+    if (!target) {
+      return res.status(404).json({ error: 'コメントが見つかりません' });
+    }
+
+    const likedIdx = target.likedBy.indexOf(cleanUser);
+    if (likedIdx === -1) {
+      target.likedBy.push(cleanUser);
+      target.likes += 1;
+
+      // Send notification to comment owner if different
+      if (target.username && target.username !== cleanUser) {
+        sendSocialNotification({
+          recipient: target.username,
+          sender: cleanUser,
+          type: 'comment_like',
+          title: 'コメントにいいねされました',
+          body: `${cleanUser} さんがあなたのコメント「${target.text.slice(0, 20)}...」にいいねしました`,
+          data: { videoId, commentId: id },
+        });
+      }
+    } else {
+      target.likedBy.splice(likedIdx, 1);
+      target.likes = Math.max(0, target.likes - 1);
+    }
+
+    saveStorage();
+    broadcast({
+      type: 'comment:liked',
+      videoId,
+      commentId: id,
+      likes: target.likes,
+      likedBy: target.likedBy,
+    });
+    res.json({ success: true, likes: target.likes, likedBy: target.likedBy });
+  });
+
+  app.delete('/api/comments/:videoId/:id', (req, res) => {
+    const { videoId, id } = req.params;
+    const { username, isAdmin } = req.body;
+    const cleanUser = String(username || '').trim().toLowerCase();
+
+    const comments = appState.trackComments[videoId] || [];
+    const idx = comments.findIndex((c) => c.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'コメントが見つかりません' });
+    }
+
+    const c = comments[idx];
+    if (!isAdmin && c.username.toLowerCase() !== cleanUser) {
+      return res.status(403).json({ error: '自分のコメントのみ削除できます' });
+    }
+
+    comments.splice(idx, 1);
+    saveStorage();
+    broadcast({
+      type: 'comment:deleted',
+      videoId,
+      commentId: id,
+    });
+    res.json({ success: true, message: 'コメントを削除しました' });
+  });
+
+  // --- REST API: 1-on-1 Direct Messaging (DM) ---
+  function getConvId(u1: string, u2: string): string {
+    return [u1.toLowerCase(), u2.toLowerCase()].sort().join('___');
+  }
+
+  app.get('/api/dm/conversations', (req, res) => {
+    const username = String(req.query.username || '').trim().toLowerCase();
+    if (!username) return res.status(400).json({ error: 'Username is required' });
+
+    const convMap = new Map<string, DirectMessage>();
+    const unreadMap = new Map<string, number>();
+
+    // Scan messages
+    for (const msg of appState.directMessages) {
+      const isSender = msg.sender.toLowerCase() === username;
+      const isRecipient = msg.recipient.toLowerCase() === username;
+      if (isSender || isRecipient) {
+        const otherUser = isSender ? msg.recipient : msg.sender;
+        const convId = getConvId(username, otherUser);
+        const existing = convMap.get(convId);
+        if (!existing || new Date(msg.timestamp) > new Date(existing.timestamp)) {
+          convMap.set(convId, msg);
+        }
+        if (isRecipient && !msg.read) {
+          unreadMap.set(convId, (unreadMap.get(convId) || 0) + 1);
+        }
+      }
+    }
+
+    // Also include all registered users so you can easily start a DM with anyone
+    const registeredUsers = appState.accounts.map((a) => a.username);
+    const result: any[] = [];
+
+    // Collect active presence
+    const onlineMap = new Map<string, { nowPlaying?: any }>();
+    for (const meta of wsClients.values()) {
+      if (meta.username) {
+        onlineMap.set(meta.username.toLowerCase(), { nowPlaying: meta.nowPlaying });
+      }
+    }
+
+    // Include existing conversations first
+    for (const [convId, lastMessage] of convMap.entries()) {
+      const otherUser = lastMessage.sender.toLowerCase() === username ? lastMessage.recipient : lastMessage.sender;
+      const presence = onlineMap.get(otherUser.toLowerCase());
+      result.push({
+        convId,
+        withUser: otherUser,
+        lastMessage,
+        unreadCount: unreadMap.get(convId) || 0,
+        isOnline: Boolean(presence),
+        nowPlaying: presence?.nowPlaying,
+      });
+    }
+
+    // Add remaining registered users without convos yet
+    for (const regUser of registeredUsers) {
+      if (regUser.toLowerCase() === username) continue;
+      const exists = result.find((r) => r.withUser.toLowerCase() === regUser.toLowerCase());
+      if (!exists) {
+        const presence = onlineMap.get(regUser.toLowerCase());
+        result.push({
+          convId: getConvId(username, regUser),
+          withUser: regUser,
+          lastMessage: null,
+          unreadCount: 0,
+          isOnline: Boolean(presence),
+          nowPlaying: presence?.nowPlaying,
+        });
+      }
+    }
+
+    res.json({ conversations: result });
+  });
+
+  app.get('/api/dm/messages', (req, res) => {
+    const user1 = String(req.query.user1 || '').trim().toLowerCase();
+    const user2 = String(req.query.user2 || '').trim().toLowerCase();
+    if (!user1 || !user2) return res.status(400).json({ error: 'user1 and user2 are required' });
+
+    const convId = getConvId(user1, user2);
+    const messages = appState.directMessages.filter((m) => m.conversationId === convId);
+
+    // Auto mark as read for user1
+    let changed = false;
+    for (const m of messages) {
+      if (m.recipient.toLowerCase() === user1 && !m.read) {
+        m.read = true;
+        changed = true;
+      }
+    }
+    if (changed) {
+      saveStorage();
+      broadcastToUser(user2, {
+        type: 'dm:read_ack',
+        conversationId: convId,
+        reader: user1,
+      });
+    }
+
+    res.json({ messages });
+  });
+
+  app.post('/api/dm/send', (req, res) => {
+    const { sender, recipient, content, trackCard, playlistCard } = req.body;
+    const cleanSender = String(sender || '').trim();
+    const cleanRecipient = String(recipient || '').trim();
+
+    if (!cleanSender || !cleanRecipient) {
+      return res.status(400).json({ error: '送信者と受信者を指定してください' });
+    }
+
+    if (appState.bannedUsers.includes(cleanSender.toLowerCase())) {
+      return res.status(403).json({ error: 'アカウントが停止されています' });
+    }
+
+    // Check block list
+    const recipientBlocks = appState.blockedUsers[cleanRecipient.toLowerCase()] || [];
+    if (recipientBlocks.includes(cleanSender.toLowerCase())) {
+      return res.status(403).json({ error: 'このユーザーへのメッセージ送信はブロックされています' });
+    }
+
+    const { sanitized } = sanitizeText(content || '');
+    const convId = getConvId(cleanSender, cleanRecipient);
+
+    const message: DirectMessage = {
+      id: `dm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      conversationId: convId,
+      sender: cleanSender,
+      recipient: cleanRecipient,
+      content: sanitized || undefined,
+      trackCard: trackCard || undefined,
+      playlistCard: playlistCard || undefined,
+      timestamp: new Date().toISOString(),
+      read: false,
+      reactions: {},
+    };
+
+    appState.directMessages.push(message);
+    if (appState.directMessages.length > 2000) {
+      appState.directMessages.splice(0, appState.directMessages.length - 2000);
+    }
+
+    // Send push notification to recipient
+    sendSocialNotification({
+      recipient: cleanRecipient,
+      sender: cleanSender,
+      type: 'dm',
+      title: `${cleanSender} さんからメッセージが届きました`,
+      body: trackCard
+        ? `🎵 楽曲「${trackCard.title}」をシェアしました`
+        : playlistCard
+        ? `📁 プレイリスト「${playlistCard.name}」をシェアしました`
+        : sanitized,
+      data: { sender: cleanSender, conversationId: convId },
+    });
+
+    saveStorage();
+
+    // Broadcast live over WebSocket to both parties
+    const payload = {
+      type: 'dm:new',
+      message,
+    };
+    broadcastToUser(cleanSender, payload);
+    broadcastToUser(cleanRecipient, payload);
+
+    res.json({ success: true, message });
+  });
+
+  app.post('/api/dm/react', (req, res) => {
+    const { messageId, emoji, username } = req.body;
+    const cleanUser = String(username || '').trim();
+    const cleanEmoji = String(emoji || '').trim();
+
+    const target = appState.directMessages.find((m) => m.id === messageId);
+    if (!target) return res.status(404).json({ error: 'メッセージが見つかりません' });
+
+    if (!target.reactions) target.reactions = {};
+    if (!target.reactions[cleanEmoji]) target.reactions[cleanEmoji] = [];
+
+    const existingIdx = target.reactions[cleanEmoji].indexOf(cleanUser);
+    if (existingIdx === -1) {
+      target.reactions[cleanEmoji].push(cleanUser);
+    } else {
+      target.reactions[cleanEmoji].splice(existingIdx, 1);
+      if (target.reactions[cleanEmoji].length === 0) {
+        delete target.reactions[cleanEmoji];
+      }
+    }
+
+    saveStorage();
+    const payload = {
+      type: 'dm:reaction_updated',
+      messageId,
+      reactions: target.reactions,
+    };
+    broadcastToUser(target.sender, payload);
+    broadcastToUser(target.recipient, payload);
+
+    res.json({ success: true, reactions: target.reactions });
+  });
+
+  app.post('/api/dm/read', (req, res) => {
+    const { conversationId, reader, sender } = req.body;
+    const cleanReader = String(reader || '').trim().toLowerCase();
+    let updated = 0;
+
+    for (const m of appState.directMessages) {
+      if (m.conversationId === conversationId && m.recipient.toLowerCase() === cleanReader && !m.read) {
+        m.read = true;
+        updated++;
+      }
+    }
+
+    if (updated > 0) {
+      saveStorage();
+      if (sender) {
+        broadcastToUser(sender, {
+          type: 'dm:read_ack',
+          conversationId,
+          reader: cleanReader,
+        });
+      }
+    }
+    res.json({ success: true, updated });
+  });
+
+  // --- REST API: Listening Party & Rooms (同時試聴セッション) ---
+  app.get('/api/party/rooms', (_req, res) => {
+    res.json({ rooms: Object.values(appState.listeningRooms) });
+  });
+
+  app.post('/api/party/rooms', (req, res) => {
+    const { name, description, category, hostUsername, initialTrack } = req.body;
+    const cleanName = String(name || '').trim();
+    const cleanHost = String(hostUsername || 'ホスト').trim();
+
+    if (!cleanName) return res.status(400).json({ error: 'ルーム名を入力してください' });
+
+    const roomId = `room_custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const newRoom: ListeningPartyRoom = {
+      id: roomId,
+      name: cleanName,
+      description: description || 'ユーザー作成のリスニングパーティー',
+      category: category || 'custom',
+      hostUsername: cleanHost,
+      currentTrack: initialTrack || null,
+      isPlaying: !!initialTrack,
+      positionSec: 0,
+      updatedAt: Date.now(),
+      participants: [
+        { username: cleanHost, joinedAt: new Date().toISOString(), isHost: true },
+      ],
+      chatMessages: [
+        {
+          id: `sys_start_${Date.now()}`,
+          username: 'System',
+          text: `ルーム「${cleanName}」が開設されました`,
+          timestamp: new Date().toISOString(),
+          type: 'system',
+        },
+      ],
+    };
+
+    appState.listeningRooms[roomId] = newRoom;
+    saveStorage();
+    broadcast({
+      type: 'party:room_created',
+      room: newRoom,
+    });
+    res.json({ success: true, room: newRoom });
+  });
+
+  app.get('/api/party/room/:id', (req, res) => {
+    const room = appState.listeningRooms[req.params.id];
+    if (!room) return res.status(404).json({ error: 'ルームが見つかりません' });
+    res.json({ room });
+  });
+
+  // --- REST API: Social Notifications & Activity Feed ---
+  app.get('/api/social/notifications', (req, res) => {
+    const username = String(req.query.username || '').trim().toLowerCase();
+    if (!username) return res.json({ notifications: [] });
+
+    const userNotifs = appState.socialNotifications.filter(
+      (n) => n.recipient.toLowerCase() === username
+    );
+    res.json({
+      notifications: userNotifs.slice(0, 50),
+      unreadCount: userNotifs.filter((n) => !n.read).length,
+    });
+  });
+
+  app.post('/api/social/notifications/read', (req, res) => {
+    const username = String(req.body.username || '').trim().toLowerCase();
+    if (username) {
+      for (const n of appState.socialNotifications) {
+        if (n.recipient.toLowerCase() === username) {
+          n.read = true;
+        }
+      }
+      saveStorage();
+    }
+    res.json({ success: true });
+  });
+
+  app.get('/api/social/feed', (_req, res) => {
+    res.json({ feed: appState.activityFeed.slice(0, 50) });
+  });
+
+  app.get('/api/social/users', (_req, res) => {
+    const onlineMap = new Map<string, any>();
+    for (const meta of wsClients.values()) {
+      if (meta.username) {
+        onlineMap.set(meta.username.toLowerCase(), { nowPlaying: meta.nowPlaying });
+      }
+    }
+
+    const list = appState.accounts.map((acc) => {
+      const presence = onlineMap.get(acc.username.toLowerCase());
+      return {
+        id: acc.id,
+        username: acc.username,
+        isOnline: Boolean(presence),
+        nowPlaying: presence?.nowPlaying || null,
+        registeredAt: acc.registeredAt,
+      };
+    });
+    res.json({ users: list });
+  });
+
+  // Follow & Block
+  app.post('/api/social/follow', (req, res) => {
+    const { follower, targetUser } = req.body;
+    const f = String(follower || '').trim().toLowerCase();
+    const t = String(targetUser || '').trim().toLowerCase();
+    if (!f || !t || f === t) return res.status(400).json({ error: 'Invalid users' });
+
+    if (!appState.follows[f]) appState.follows[f] = [];
+    const idx = appState.follows[f].indexOf(t);
+    let isFollowing = false;
+    if (idx === -1) {
+      appState.follows[f].push(t);
+      isFollowing = true;
+      sendSocialNotification({
+        recipient: targetUser,
+        sender: follower,
+        type: 'follow',
+        title: '新しいフォロワー',
+        body: `${follower} さんがあなたをフォローしました`,
+      });
+    } else {
+      appState.follows[f].splice(idx, 1);
+      isFollowing = false;
+    }
+    saveStorage();
+    res.json({ success: true, isFollowing, follows: appState.follows[f] });
+  });
+
+  app.post('/api/social/block', (req, res) => {
+    const { user, targetUser } = req.body;
+    const u = String(user || '').trim().toLowerCase();
+    const t = String(targetUser || '').trim().toLowerCase();
+    if (!u || !t) return res.status(400).json({ error: 'Invalid users' });
+
+    if (!appState.blockedUsers[u]) appState.blockedUsers[u] = [];
+    if (!appState.blockedUsers[u].includes(t)) {
+      appState.blockedUsers[u].push(t);
+    }
+    saveStorage();
+    res.json({ success: true, blocked: appState.blockedUsers[u] });
+  });
+
+  app.post('/api/social/unblock', (req, res) => {
+    const { user, targetUser } = req.body;
+    const u = String(user || '').trim().toLowerCase();
+    const t = String(targetUser || '').trim().toLowerCase();
+
+    if (appState.blockedUsers[u]) {
+      appState.blockedUsers[u] = appState.blockedUsers[u].filter((x) => x !== t);
+      saveStorage();
+    }
+    res.json({ success: true, blocked: appState.blockedUsers[u] || [] });
+  });
+
+  // Moderation Report
+  app.post('/api/social/report', (req, res) => {
+    const { reporter, reportedUser, targetType, targetId, reason, contentSnippet } = req.body;
+    const report: ModerationReport = {
+      id: `rep_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      reporter: String(reporter || '匿名').trim(),
+      reportedUser: String(reportedUser || '不明').trim(),
+      targetType: targetType || 'comment',
+      targetId: String(targetId || '').trim(),
+      reason: String(reason || '不適切な投稿').trim(),
+      contentSnippet: contentSnippet || undefined,
+      timestamp: new Date().toISOString(),
+      status: 'pending',
+    };
+    appState.moderationReports.unshift(report);
+    if (appState.moderationReports.length > 200) appState.moderationReports.splice(200);
+    saveStorage();
+    res.json({ success: true, message: '通報を受け付けました。管理チームが確認します。', reportId: report.id });
+  });
+
+  // --- Admin Moderation & Community Endpoints ---
+  app.get('/api/admin/moderation/overview', (_req, res) => {
+    let allCommentsCount = 0;
+    const allCommentsList: any[] = [];
+    for (const [vId, list] of Object.entries(appState.trackComments)) {
+      allCommentsCount += list.length;
+      for (const c of list) {
+        allCommentsList.push({ ...c, videoId: vId });
+      }
+    }
+    allCommentsList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json({
+      totalComments: allCommentsCount,
+      recentComments: allCommentsList.slice(0, 50),
+      reports: appState.moderationReports,
+      bannedUsers: appState.bannedUsers,
+      totalRooms: Object.keys(appState.listeningRooms).length,
+      rooms: Object.values(appState.listeningRooms),
+      ngWords: DEFAULT_NG_WORDS,
+    });
+  });
+
+  app.post('/api/admin/moderation/resolve-report', (req, res) => {
+    const { reportId, status } = req.body;
+    const rep = appState.moderationReports.find((r) => r.id === reportId);
+    if (!rep) return res.status(404).json({ error: '通報が見つかりません' });
+    rep.status = status || 'resolved';
+    saveStorage();
+    res.json({ success: true, report: rep });
+  });
+
+  app.post('/api/admin/moderation/toggle-ban', (req, res) => {
+    const { username } = req.body;
+    const cleanUser = String(username || '').trim().toLowerCase();
+    if (!cleanUser) return res.status(400).json({ error: 'Username is required' });
+
+    const idx = appState.bannedUsers.indexOf(cleanUser);
+    let isBanned = false;
+    if (idx === -1) {
+      appState.bannedUsers.push(cleanUser);
+      isBanned = true;
+    } else {
+      appState.bannedUsers.splice(idx, 1);
+      isBanned = false;
+    }
+    saveStorage();
+    res.json({ success: true, isBanned, bannedUsers: appState.bannedUsers });
+  });
+
+  // --- Admin Direct Messages Audit & Surveillance (全ユーザー間DM監視・監査) ---
+  app.get('/api/admin/dm/all', (req, res) => {
+    // Group all direct messages by conversationId
+    const convMap = new Map<string, {
+      conversationId: string;
+      participants: [string, string];
+      messageCount: number;
+      lastTimestamp: string;
+      messages: DirectMessage[];
+    }>();
+
+    for (const msg of appState.directMessages) {
+      let group = convMap.get(msg.conversationId);
+      if (!group) {
+        const parts = msg.conversationId.split('___');
+        const p1 = parts[0] || msg.sender;
+        const p2 = parts[1] || msg.recipient;
+        group = {
+          conversationId: msg.conversationId,
+          participants: [p1, p2],
+          messageCount: 0,
+          lastTimestamp: msg.timestamp,
+          messages: [],
+        };
+        convMap.set(msg.conversationId, group);
+      }
+      group.messageCount++;
+      group.messages.push(msg);
+      if (new Date(msg.timestamp) > new Date(group.lastTimestamp)) {
+        group.lastTimestamp = msg.timestamp;
+      }
+    }
+
+    // Sort conversations by most recent message
+    const conversations = Array.from(convMap.values()).sort(
+      (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+    );
+
+    res.json({
+      totalMessages: appState.directMessages.length,
+      totalConversations: conversations.length,
+      conversations,
+    });
+  });
+
+  // Admin delete specific DM message
+  app.delete('/api/admin/dm/message/:id', (req, res) => {
+    const { id } = req.params;
+    const idx = appState.directMessages.findIndex((m) => m.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'メッセージが見つかりません' });
+    }
+
+    const deleted = appState.directMessages.splice(idx, 1)[0];
+    saveStorage();
+
+    // Broadcast deletion so open chat windows update
+    const payload = {
+      type: 'dm:deleted',
+      messageId: id,
+      conversationId: deleted.conversationId,
+    };
+    broadcastToUser(deleted.sender, payload);
+    broadcastToUser(deleted.recipient, payload);
+
+    res.json({ success: true, message: 'DMメッセージを強制削除しました', deletedId: id });
+  });
+
   // Serve Vite or static files
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));
@@ -2587,8 +4081,8 @@ async function startServer() {
     app.use(vite.middlewares);
   }
 
-  app.listen(Number(PORT), '0.0.0.0', () => {
-    console.log(`[Server] YT Music InnerTube backend listening on http://0.0.0.0:${PORT}`);
+  server.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`[Server] YT Music InnerTube backend with WebSockets listening on http://0.0.0.0:${PORT}`);
   });
 }
 

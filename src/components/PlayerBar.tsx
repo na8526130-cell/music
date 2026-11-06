@@ -23,6 +23,9 @@ import {
   Sliders,
   Sparkles,
   ListPlus,
+  Share2,
+  AppWindow,
+  MessageSquare,
 } from 'lucide-react';
 
 function formatSeconds(secs: number): string {
@@ -53,6 +56,7 @@ export const PlayerBar: React.FC = () => {
     toggleShuffle,
     playerMode,
     setPlayerMode,
+    setVideoLayout,
     lyricsOpen,
     setLyricsOpen,
     queueOpen,
@@ -72,6 +76,17 @@ export const PlayerBar: React.FC = () => {
     toggleEndlessRadio,
     startRadioForTrack,
     openAddToPlaylistModal,
+    eqModalOpen,
+    setEqModalOpen,
+    openShareModal,
+    floatingPlayerVisible,
+    setFloatingPlayerVisible,
+    setFloatingPlayerCollapsed,
+    commentsModalOpen,
+    setCommentsModalOpen,
+    danmakuEnabled,
+    setDanmakuEnabled,
+    setStoryModalOpen,
   } = usePlayer();
 
   const [crossfadeMenuOpen, setCrossfadeMenuOpen] = useState(false);
@@ -415,33 +430,36 @@ export const PlayerBar: React.FC = () => {
             <Sun className="w-3.5 h-3.5" />
           </button>
 
-          {/* Song / Video mode switch */}
-          <div className="hidden lg:flex items-center bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 text-xs">
+          {/* Song / MV Video mode switch */}
+          <div className="hidden sm:flex items-center bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 text-xs">
             <button
               type="button"
               onClick={() => setPlayerMode('cover')}
-              className={`px-2 py-1 rounded flex items-center gap-1 font-medium transition-colors ${
+              className={`px-2 py-1 rounded flex items-center gap-1 font-medium transition-colors cursor-pointer ${
                 playerMode === 'cover'
                   ? 'bg-neutral-800 text-white shadow-sm'
                   : 'text-neutral-400 hover:text-neutral-200'
               }`}
-              title="カバーアート / オーディオモード"
+              title="カバーアート / 音声モード"
             >
               <Music className="w-3.5 h-3.5" />
               <span>曲</span>
             </button>
             <button
               type="button"
-              onClick={() => setPlayerMode('video')}
-              className={`px-2 py-1 rounded flex items-center gap-1 font-medium transition-colors ${
+              onClick={() => {
+                setPlayerMode('video');
+                setVideoLayout('theater');
+              }}
+              className={`px-2 py-1 rounded flex items-center gap-1 font-medium transition-colors cursor-pointer ${
                 playerMode === 'video'
-                  ? 'bg-red-600 text-white shadow-sm'
-                  : 'text-neutral-400 hover:text-neutral-200'
+                  ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-sm ring-1 ring-red-400'
+                  : 'text-neutral-400 hover:text-red-400'
               }`}
-              title="YouTube ミュージックビデオモード (ピクチャーインピクチャー)"
+              title="YouTube ミュージックビデオ（MV）モード"
             >
-              <Tv className="w-3.5 h-3.5" />
-              <span>動画</span>
+              <Tv className="w-3.5 h-3.5 text-red-400" />
+              <span>MV</span>
             </button>
           </div>
 
@@ -457,6 +475,18 @@ export const PlayerBar: React.FC = () => {
             <FileText className="w-4 h-4 md:w-5 md:h-5" />
           </button>
 
+          {/* Timestamped Comments & Danmaku Toggle */}
+          <button
+            type="button"
+            onClick={() => setCommentsModalOpen(true)}
+            title="タイムスタンプ付き弾幕コメントを開く (SoundCloud / ニコニコ風)"
+            className={`p-2 rounded-lg transition-colors cursor-pointer ${
+              commentsModalOpen ? 'bg-red-600/20 text-red-500' : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
+          </button>
+
           {/* Queue Drawer Toggle */}
           <button
             type="button"
@@ -470,6 +500,61 @@ export const PlayerBar: React.FC = () => {
             {queue.length > 0 && (
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
             )}
+          </button>
+
+          {/* Equalizer & Heavy Bass Boost Button */}
+          <button
+            type="button"
+            onClick={() => setEqModalOpen((prev) => !prev)}
+            title="10バンド・オーディオイコライザー & 重低音ブースト"
+            className={`p-2 rounded-lg transition-colors ${
+              eqModalOpen
+                ? 'bg-amber-600/20 text-amber-400'
+                : 'text-neutral-400 hover:text-amber-400'
+            }`}
+          >
+            <Sliders className="w-4 h-4 md:w-5 md:h-5" />
+          </button>
+
+          {/* Share Track / Playlist Button */}
+          <button
+            type="button"
+            onClick={() => openShareModal('track')}
+            title="ワンクリックで友達にシェア (URL発行)"
+            className="p-2 rounded-lg text-neutral-400 hover:text-blue-400 transition-colors"
+          >
+            <Share2 className="w-4 h-4 md:w-5 md:h-5" />
+          </button>
+
+          {/* Instagram Story Card Generator Button */}
+          <button
+            type="button"
+            onClick={() => setStoryModalOpen(true)}
+            title="Instagramストーリーズ風 楽曲シェア画像を生成"
+            className="p-2 rounded-lg text-neutral-400 hover:text-pink-400 transition-colors"
+          >
+            <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+          </button>
+
+          {/* Mini Floating Player Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setFloatingPlayerVisible((prev) => !prev);
+              setFloatingPlayerCollapsed(false);
+            }}
+            title={
+              floatingPlayerVisible
+                ? '画面隅のミニプレイヤーを隠す'
+                : '画面隅のミニフローティングプレイヤーを表示'
+            }
+            className={`hidden sm:flex p-2 rounded-lg transition-colors ${
+              floatingPlayerVisible
+                ? 'text-red-500'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <AppWindow className="w-4 h-4 md:w-5 md:h-5" />
           </button>
 
           {/* Volume Control */}

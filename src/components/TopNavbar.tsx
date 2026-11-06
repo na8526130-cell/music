@@ -1,7 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { api } from '../services/api';
-import { Search, Terminal, Disc3, X, Link2, User, Bell, ShieldCheck } from 'lucide-react';
+import {
+  Search,
+  Terminal,
+  Disc3,
+  X,
+  Link2,
+  User,
+  Bell,
+  ShieldCheck,
+  Sliders,
+  MessageSquare,
+  Radio,
+  FileText,
+  Trophy,
+  Sparkles,
+  Users,
+  Music,
+  Tv,
+  Crown,
+} from 'lucide-react';
 
 export const TopNavbar: React.FC = () => {
   const {
@@ -17,6 +36,20 @@ export const TopNavbar: React.FC = () => {
     onlineCount,
     isAdmin,
     setAdminModalOpen,
+    setEqModalOpen,
+    setDmModalOpen,
+    setNotificationDrawerOpen,
+    unreadNotificationCount,
+    setTermsModalOpen,
+    setQuizModalOpen,
+    setMatchModalOpen,
+    setCollabModalOpen,
+    playerMode,
+    setPlayerMode,
+    setVideoLayout,
+    currentTrack,
+    queue,
+    playTrack,
   } = usePlayer();
 
   const [localInput, setLocalInput] = useState(searchQuery);
@@ -113,6 +146,45 @@ export const TopNavbar: React.FC = () => {
           <span className="font-extrabold text-white text-xs font-mono">{onlineCount}</span>
           <span className="text-[10px] text-emerald-400 font-bold">人</span>
         </button>
+
+        {/* Audio (音声) / MV (動画) Mode Switcher */}
+        <div className="flex items-center bg-neutral-900/90 border border-neutral-700/80 rounded-full p-0.5 shadow-inner gap-0.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setPlayerMode('cover')}
+            className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              playerMode === 'cover'
+                ? 'bg-neutral-800 text-white shadow-sm'
+                : 'text-neutral-400 hover:text-neutral-200'
+            }`}
+            title="音声・カバーアートモード（通信量節約・BGM再生）"
+          >
+            <Music className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline sm:inline">音声</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPlayerMode('video');
+              setVideoLayout('theater');
+              if (!currentTrack && queue.length > 0) {
+                playTrack(queue[0]);
+              }
+            }}
+            className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              playerMode === 'video'
+                ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md shadow-red-900/40 ring-1 ring-red-400'
+                : 'text-neutral-400 hover:text-red-400'
+            }`}
+            title={currentTrack ? 'ミュージックビデオ（MV）モードに切り替え' : 'MVモード（曲を選んでMVを大画面再生）'}
+          >
+            <Tv className="w-3.5 h-3.5 text-red-400" />
+            <span>MV</span>
+            {playerMode === 'video' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Zone 2: Navigation Links */}
@@ -130,6 +202,21 @@ export const TopNavbar: React.FC = () => {
         </button>
         <button
           type="button"
+          onClick={() => {
+            navigateTo('home');
+            setTimeout(() => {
+              const el = document.getElementById('oricon-ranking-section');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }, 80);
+          }}
+          className="text-amber-400/90 hover:text-amber-300 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1 cursor-pointer font-medium"
+          title="オリコン週間ランキングへスクロール"
+        >
+          <Crown className="w-3.5 h-3.5 text-amber-400" />
+          <span>オリコン (Oricon)</span>
+        </button>
+        <button
+          type="button"
           onClick={() => navigateTo('library')}
           className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
             activeView === 'library'
@@ -138,6 +225,25 @@ export const TopNavbar: React.FC = () => {
           }`}
         >
           ライブラリ (Library)
+        </button>
+        <button
+          type="button"
+          onClick={() => navigateTo('party')}
+          className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
+            activeView === 'party'
+              ? 'text-red-400 font-bold'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+          <span>同時聴きラウンジ</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setDmModalOpen(true)}
+          className="text-neutral-400 hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+        >
+          DMチャット
         </button>
         <button
           type="button"
@@ -224,6 +330,65 @@ export const TopNavbar: React.FC = () => {
           </span>
         </button>
 
+        {/* Intro Quiz Button */}
+        <button
+          type="button"
+          onClick={() => setQuizModalOpen(true)}
+          title="イントロ当て音楽クイズ（全5問・早押し対戦）"
+          className="hidden lg:flex px-2.5 sm:px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 border border-amber-500/30 rounded-lg text-xs font-semibold items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
+        >
+          <Trophy className="w-3.5 h-3.5 text-amber-400" />
+          <span>クイズ</span>
+        </button>
+
+        {/* Music Taste Matching Button */}
+        <button
+          type="button"
+          onClick={() => setMatchModalOpen(true)}
+          title="音楽の好みの近さ マッチング診断"
+          className="hidden xl:flex px-2.5 sm:px-3 py-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-300 hover:text-pink-200 border border-pink-500/30 rounded-lg text-xs font-semibold items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-pink-400" />
+          <span>好み診断</span>
+        </button>
+
+        {/* Collab Playlist Button */}
+        <button
+          type="button"
+          onClick={() => setCollabModalOpen(true)}
+          title="共同編集プレイリスト（友達とリアルタイム作成）"
+          className="hidden xl:flex px-2.5 sm:px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 border border-emerald-500/30 rounded-lg text-xs font-semibold items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
+        >
+          <Users className="w-3.5 h-3.5 text-emerald-400" />
+          <span>共同作成</span>
+        </button>
+
+        {/* Direct Messages Quick Button */}
+        <button
+          type="button"
+          onClick={() => setDmModalOpen(true)}
+          title="ユーザー間DMチャット（曲やプレイリストのプライベート交換）"
+          className="px-2.5 sm:px-3 py-2 bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
+        >
+          <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="hidden sm:inline">DM</span>
+        </button>
+
+        {/* Social Notification Bell with live unread badge */}
+        <button
+          type="button"
+          onClick={() => setNotificationDrawerOpen(true)}
+          title="通知 & アクティビティ"
+          className="relative p-2 bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-800 rounded-lg transition-colors shrink-0 cursor-pointer"
+        >
+          <Bell className="w-4 h-4 text-neutral-300" />
+          {unreadNotificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-red-600 text-white font-mono text-[10px] font-bold ring-2 ring-[#070708] animate-pulse">
+              {unreadNotificationCount}
+            </span>
+          )}
+        </button>
+
         {/* Account Status Button */}
         <button
           type="button"
@@ -275,6 +440,17 @@ export const TopNavbar: React.FC = () => {
           <span className="hidden sm:inline">URLインポート</span>
         </button>
 
+        {/* 10-Band Equalizer Quick Toggle */}
+        <button
+          type="button"
+          onClick={() => setEqModalOpen(true)}
+          title="本格10バンドイコライザー & 重低音ブースト"
+          className="px-2.5 sm:px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-amber-400 border border-neutral-800 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+        >
+          <Sliders className="w-3.5 h-3.5 text-amber-500" />
+          <span className="hidden lg:inline">EQ調整</span>
+        </button>
+
         {/* InnerTube Inspector Button */}
         <button
           type="button"
@@ -284,6 +460,17 @@ export const TopNavbar: React.FC = () => {
         >
           <Terminal className="w-3.5 h-3.5 text-red-500" />
           <span className="hidden lg:inline">API 診断</span>
+        </button>
+
+        {/* Terms of Service Button */}
+        <button
+          type="button"
+          onClick={() => setTermsModalOpen(true)}
+          title="利用規約・DM監査規程・プライバシーポリシー"
+          className="px-2.5 sm:px-3 py-2 bg-neutral-900/90 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+        >
+          <FileText className="w-3.5 h-3.5 text-neutral-400" />
+          <span className="hidden xl:inline">利用規約</span>
         </button>
       </div>
     </header>

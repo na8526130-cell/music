@@ -29,3 +29,19 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
 }
+
+@keyframes danmaku {
+  0% {
+    transform: translateX(100vw);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-danmaku {
+  animation-name: danmaku;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  will-change: transform;
+}

@@ -18,7 +18,13 @@ import {
   BellRing,
   Activity,
   Users,
+  Pin,
+  Play,
+  Plus,
+  Music,
+  Disc3,
 } from 'lucide-react';
+import { Track } from '../types/music';
 
 export const AccountModal: React.FC = () => {
   const {
@@ -35,6 +41,11 @@ export const AccountModal: React.FC = () => {
     isAdmin,
     setAdminModalOpen,
     adminLoginWithPassword,
+    setTermsModalOpen,
+    likedTracks,
+    recentTracks,
+    currentTrack,
+    playTrack,
   } = usePlayer();
 
   const [authMode, setAuthMode] = useState<'register' | 'login' | 'admin'>('register');
@@ -42,6 +53,38 @@ export const AccountModal: React.FC = () => {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
+
+  // Pinned "My All-Time Best 4 Tracks" state
+  const [pinnedBestTracks, setPinnedBestTracks] = useState<Track[]>(() => {
+    try {
+      const saved = localStorage.getItem('yt_music_pinned_best4_v1');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [pinPickerOpen, setPinPickerOpen] = useState(false);
+
+  const savePinnedTracks = (tracks: Track[]) => {
+    setPinnedBestTracks(tracks);
+    try {
+      localStorage.setItem('yt_music_pinned_best4_v1', JSON.stringify(tracks));
+    } catch {}
+  };
+
+  const handlePinTrack = (track: Track) => {
+    if (pinnedBestTracks.some((t) => t.id === track.id)) return;
+    if (pinnedBestTracks.length >= 4) {
+      savePinnedTracks([...pinnedBestTracks.slice(1), track]);
+    } else {
+      savePinnedTracks([...pinnedBestTracks, track]);
+    }
+    setPinPickerOpen(false);
+  };
+
+  const handleUnpinTrack = (trackId: string) => {
+    savePinnedTracks(pinnedBestTracks.filter((t) => t.id !== trackId));
+  };
   const [loading, setLoading] = useState(false);
   const [sendingNotification, setSendingNotification] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -413,6 +456,18 @@ export const AccountModal: React.FC = () => {
                     )}
                     <span>アカウントを作成して登録</span>
                   </button>
+
+                  <p className="text-[11px] text-neutral-400 text-center leading-relaxed pt-1">
+                    アカウントを作成することで、
+                    <button
+                      type="button"
+                      onClick={() => setTermsModalOpen(true)}
+                      className="text-red-400 hover:underline font-semibold mx-1 cursor-pointer"
+                    >
+                      利用規約・DM監査規程・プライバシーポリシー
+                    </button>
+                    に同意したものとみなされます。
+                  </p>
                 </form>
               ) : authMode === 'login' ? (
                 /* Login Form: username/email, password */
@@ -587,6 +642,174 @@ export const AccountModal: React.FC = () => {
                 )}
               </div>
 
+              {/* Profile Pinned "All-Time Best 4 Tracks" */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-neutral-900/90 to-neutral-950 border border-neutral-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                      <Pin className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <span>マイ・オールタイム・ベスト4曲（神曲4選）</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">
+                          {pinnedBestTracks.length}/4
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-neutral-400">プロフィールに飾る人生で最も好きな4曲</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {pinnedBestTracks.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => playTrack(pinnedBestTracks[0], pinnedBestTracks)}
+                        className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer transition-transform active:scale-95"
+                      >
+                        <Play className="w-3 h-3 fill-current" />
+                        <span>連続再生</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setPinPickerOpen((prev) => !prev)}
+                      className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-medium rounded-lg border border-neutral-700 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>{pinPickerOpen ? '閉じる' : '追加・編集'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4 Cards Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                  {[0, 1, 2, 3].map((slotIdx) => {
+                    const track = pinnedBestTracks[slotIdx];
+                    if (track) {
+                      return (
+                        <div
+                          key={track.id}
+                          className="relative group rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800/90 hover:border-amber-500/50 transition-all p-2 flex flex-col justify-between"
+                        >
+                          <div className="relative aspect-square rounded-lg overflow-hidden bg-neutral-900 mb-2">
+                            <img
+                              src={track.thumbnail}
+                              alt=""
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              referrerPolicy="no-referrer"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => playTrack(track, pinnedBestTracks)}
+                              className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                            >
+                              <div className="w-8 h-8 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-lg">
+                                <Play className="w-4 h-4 fill-current ml-0.5" />
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUnpinTrack(track.id)}
+                              title="ピン留め解除"
+                              className="absolute top-1 right-1 p-1 rounded-md bg-black/70 hover:bg-red-600 text-neutral-300 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          <div className="min-w-0">
+                            <p
+                              onClick={() => playTrack(track, pinnedBestTracks)}
+                              className="text-xs font-bold text-white truncate cursor-pointer hover:underline"
+                            >
+                              {track.title}
+                            </p>
+                            <p className="text-[10px] text-neutral-400 truncate">{track.artist}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={slotIdx}
+                        type="button"
+                        onClick={() => setPinPickerOpen(true)}
+                        className="h-32 sm:h-auto aspect-square rounded-xl border-2 border-dashed border-neutral-800 hover:border-neutral-700 bg-neutral-950/40 flex flex-col items-center justify-center gap-1.5 text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer"
+                      >
+                        <Disc3 className="w-6 h-6 stroke-1 text-neutral-600" />
+                        <span className="text-[10px] font-mono">枠 {slotIdx + 1}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Inline Track Picker Drawer */}
+                {pinPickerOpen && (
+                  <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-xl space-y-2 animate-fade-in">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-neutral-300">ピン留めする曲を選択:</span>
+                      <span className="text-[10px] text-neutral-500">お気に入り・再生中から選択</span>
+                    </div>
+
+                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                      {currentTrack && !pinnedBestTracks.some((t) => t.id === currentTrack.id) && (
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-900 border border-amber-500/30">
+                          <div className="min-w-0 flex items-center gap-2">
+                            <span className="text-[10px] px-1 bg-amber-500/20 text-amber-300 rounded">再生中</span>
+                            <p className="text-xs text-white truncate">{currentTrack.title}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handlePinTrack(currentTrack)}
+                            className="px-2 py-1 bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-bold rounded cursor-pointer"
+                          >
+                            ピン留め
+                          </button>
+                        </div>
+                      )}
+
+                      {likedTracks.map((lt) => {
+                        const isPinned = pinnedBestTracks.some((t) => t.id === lt.id);
+                        return (
+                          <div
+                            key={lt.id}
+                            className="flex items-center justify-between p-1.5 rounded-lg hover:bg-neutral-900 transition-colors"
+                          >
+                            <div className="min-w-0 flex items-center gap-2">
+                              <img src={lt.thumbnail} alt="" className="w-7 h-7 rounded object-cover" />
+                              <div className="min-w-0">
+                                <p className="text-xs text-white truncate">{lt.title}</p>
+                                <p className="text-[10px] text-neutral-400 truncate">{lt.artist}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={isPinned}
+                              onClick={() => handlePinTrack(lt)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-semibold cursor-pointer ${
+                                isPinned
+                                  ? 'bg-neutral-800 text-neutral-500'
+                                  : 'bg-neutral-800 hover:bg-neutral-700 text-white'
+                              }`}
+                            >
+                              {isPinned ? '登録中' : '追加'}
+                            </button>
+                          </div>
+                        );
+                      })}
+
+                      {likedTracks.length === 0 && !currentTrack && (
+                        <p className="text-xs text-neutral-500 text-center py-3">
+                          お気に入りの曲を追加すると、ここに候補が表示されます。
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Notification Settings */}
               {currentUser.email ? (
                 <div className="p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800 space-y-3">
@@ -705,17 +928,26 @@ export const AccountModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="mt-4 pt-3 border-t border-neutral-800/80 flex items-center justify-between text-xs text-neutral-400 shrink-0">
+        <div className="mt-4 pt-3 border-t border-neutral-800/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-neutral-400 shrink-0">
           <span className="text-[11px] text-neutral-400">
             実績値: 🟢 オンライン {onlineCount}人 / 総アクセス {stats.totalAccessCount.toLocaleString()}回 / アカウント {stats.totalAccountsCount}人
           </span>
-          <button
-            type="button"
-            onClick={() => setAccountModalOpen(false)}
-            className="px-3.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-xs transition-colors cursor-pointer"
-          >
-            閉じる
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTermsModalOpen(true)}
+              className="text-xs text-neutral-400 hover:text-white underline cursor-pointer"
+            >
+              利用規約 & プライバシー
+            </button>
+            <button
+              type="button"
+              onClick={() => setAccountModalOpen(false)}
+              className="px-3.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-xs transition-colors cursor-pointer"
+            >
+              閉じる
+            </button>
+          </div>
         </div>
       </div>
     </div>

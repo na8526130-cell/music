@@ -17,7 +17,6 @@ import {
   Search,
   Sliders,
   RotateCcw,
-  Mic2,
   ListPlus,
   Zap,
 } from 'lucide-react';
@@ -654,7 +653,7 @@ export const LyricsDrawer: React.FC = () => {
             <p className="text-xs">リアルタイム同期歌詞を取得中...</p>
           </div>
         ) : data?.syncedLyrics && data.syncedLyrics.length > 0 ? (
-          /* Real-time Synchronized Karaoke View */
+          /* Real-time Synchronized Lyrics View */
           <div className="space-y-4">
             {/* Informational banner when approximate section-aware sync is active */}
             {data.isApproximate && (
@@ -872,7 +871,7 @@ export const LyricsDrawer: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Active line singing progress bar (karaoke shimmer) */}
+                  {/* Active line singing progress bar (lyrics progress shimmer) */}
                   {isActive && (
                     <div className="w-full h-1.5 bg-white/15 rounded-full mt-3 overflow-hidden shadow-inner">
                       <div

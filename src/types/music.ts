@@ -9,6 +9,8 @@ export interface Track {
   durationSeconds?: number;
   thumbnail: string;
   views?: string;
+  isLocal?: boolean;
+  audioUrl?: string;
 }
 
 export interface Artist {
@@ -66,13 +68,22 @@ export interface LyricsData {
   globalOffset?: number;
 }
 
+export interface OriconTrack extends Track {
+  rank: number;
+  metric?: string;
+  rankType?: 'streaming' | 'digital';
+}
+
 export interface ExploreData {
   trending: Track[];
   newReleases: Album[];
   moodsAndGenres: { title: string; params: string }[];
   musicVideos: Track[];
+  oriconRanking?: OriconTrack[];
+  oriconDigital?: OriconTrack[];
 }
 
-export type ViewType = 'home' | 'search' | 'library' | 'artist' | 'album' | 'playlist';
+export type ViewType = 'home' | 'search' | 'library' | 'artist' | 'album' | 'playlist' | 'party';
 export type PlayerMode = 'cover' | 'video';
+export type VideoLayout = 'theater' | 'pip';
 export type RepeatMode = 'off' | 'all' | 'one';

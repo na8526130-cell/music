@@ -10,6 +10,11 @@ import {
   Loader2,
   Users,
   Disc,
+  Calendar,
+  Ticket,
+  ShoppingBag,
+  MessageSquare,
+  Send,
 } from 'lucide-react';
 
 export const ArtistDetailView: React.FC = () => {
@@ -275,6 +280,224 @@ export const ArtistDetailView: React.FC = () => {
           </div>
         </section>
       )}
+
+      {/* Live Tour Schedule & Official Goods */}
+      <section className="space-y-4 pt-4 border-t border-neutral-800/80">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>ライブツアー ＆ イベント告知</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-600/20 text-red-300 font-mono">
+                  OFFICIAL LIVE
+                </span>
+              </h2>
+              <p className="text-xs text-neutral-400">開催予定のツアー日程とチケット情報</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {[
+            {
+              title: `${header.name} ARENA TOUR 2026`,
+              venue: '東京・有明アリーナ',
+              date: '2026.04.18 (土) 開場 17:00',
+              status: 'チケット先行受付中',
+              statusColor: 'text-emerald-400 border-emerald-500/30 bg-emerald-950/40',
+            },
+            {
+              title: `${header.name} ARENA TOUR 2026`,
+              venue: '大阪・大阪城ホール',
+              date: '2026.04.25 (土) 開場 17:00',
+              status: '一般発売まもなく',
+              statusColor: 'text-amber-400 border-amber-500/30 bg-amber-950/40',
+            },
+          ].map((tour, idx) => (
+            <div
+              key={idx}
+              className="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800/80 hover:border-neutral-700 transition-colors flex items-center justify-between gap-3"
+            >
+              <div className="space-y-1 min-w-0">
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${tour.statusColor}`}>
+                  {tour.status}
+                </span>
+                <h4 className="text-sm font-bold text-white truncate pt-1">{tour.title}</h4>
+                <p className="text-xs text-neutral-300 font-medium">{tour.venue}</p>
+                <p className="text-[11px] text-neutral-400">{tour.date}</p>
+              </div>
+              <button
+                type="button"
+                className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+              >
+                <Ticket className="w-3.5 h-3.5 text-red-400" />
+                <span>詳細</span>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Official Goods Preview */}
+        <div className="pt-2">
+          <div className="flex items-center gap-2 mb-3">
+            <ShoppingBag className="w-4 h-4 text-purple-400" />
+            <h3 className="text-sm font-bold text-neutral-200">公式ツアーグッズ</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { name: 'Tour Official Tee (Black)', price: '¥4,500', tag: '人気No.1' },
+              { name: 'Jacquard Muffler Towel', price: '¥2,200', tag: '定番' },
+              { name: 'LED Wireless Light Band', price: '¥3,800', tag: '演出連動' },
+              { name: 'Limited Vinyl Edition LP', price: '¥5,000', tag: '会場限定' },
+            ].map((goods, idx) => (
+              <div
+                key={idx}
+                className="p-3 rounded-xl bg-neutral-900/40 border border-neutral-800/70 hover:border-purple-500/40 transition-colors space-y-2"
+              >
+                <div className="aspect-square rounded-lg bg-neutral-800/60 border border-neutral-700/40 flex items-center justify-center text-purple-400">
+                  <ShoppingBag className="w-8 h-8 opacity-60" />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-[10px] mb-0.5">
+                    <span className="text-purple-300 font-mono">{goods.tag}</span>
+                    <span className="text-white font-bold font-mono">{goods.price}</span>
+                  </div>
+                  <p className="text-xs font-medium text-neutral-200 truncate">{goods.name}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Fan Community Message Board */}
+      <section className="space-y-4 pt-4 border-t border-neutral-800/80">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-pink-600/20 text-pink-400 flex items-center justify-center">
+              <MessageSquare className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>{header.name} ファンコミュニティ掲示板</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-600/20 text-pink-300 font-mono">
+                  FAN BOARD
+                </span>
+              </h2>
+              <p className="text-xs text-neutral-400">ファン同士で楽曲の感想やツアーの思い出を語り合おう</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Interactive fan board */}
+        <FanBoard artistId={header.id} artistName={header.name} />
+      </section>
     </div>
   );
 };
+
+// Fan Board sub-component
+const FanBoard: React.FC<{ artistId: string; artistName: string }> = ({ artistId, artistName }) => {
+  const storageKey = `artist_fanboard_${artistId}`;
+  const [messages, setMessages] = useState<{ id: string; user: string; text: string; time: string; likes: number }[]>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      {
+        id: '1',
+        user: 'RockListener_99',
+        text: `${artistName}の新曲、ラスサビの転調が鳥肌モノでした！毎日リピートしてます。`,
+        time: '2時間前',
+        likes: 12,
+      },
+      {
+        id: '2',
+        user: 'LiveFan_Haru',
+        text: '春ツアー東京公演のチケット当たりました！！行く人仲良くしてください🙌',
+        time: '5時間前',
+        likes: 8,
+      },
+    ];
+  });
+
+  const [inputVal, setInputVal] = useState('');
+
+  const handlePost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputVal.trim()) return;
+    const newMsg = {
+      id: `msg_${Date.now()}`,
+      user: 'あなた',
+      text: inputVal.trim(),
+      time: 'たった今',
+      likes: 0,
+    };
+    const updated = [newMsg, ...messages];
+    setMessages(updated);
+    setInputVal('');
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+    } catch {}
+  };
+
+  const handleLike = (id: string) => {
+    const updated = messages.map((m) => (m.id === id ? { ...m, likes: m.likes + 1 } : m));
+    setMessages(updated);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+    } catch {}
+  };
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handlePost} className="flex gap-2">
+        <input
+          type="text"
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
+          placeholder={`${artistName}への応援メッセージや感想を投稿...`}
+          className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-pink-500 transition-colors"
+        />
+        <button
+          type="submit"
+          disabled={!inputVal.trim()}
+          className="px-4 py-2.5 bg-pink-600 hover:bg-pink-500 disabled:opacity-40 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer shrink-0 shadow-md shadow-pink-600/20"
+        >
+          <Send className="w-3.5 h-3.5" />
+          <span>投稿</span>
+        </button>
+      </form>
+
+      <div className="space-y-2.5">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className="p-3.5 rounded-xl bg-neutral-900/40 border border-neutral-800/70 flex items-start justify-between gap-3"
+          >
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white">{msg.user}</span>
+                <span className="text-[10px] text-neutral-500">{msg.time}</span>
+              </div>
+              <p className="text-xs text-neutral-300 leading-relaxed">{msg.text}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleLike(msg.id)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-neutral-800/80 hover:bg-neutral-800 text-neutral-400 hover:text-pink-400 transition-colors text-xs shrink-0 cursor-pointer"
+            >
+              <Heart className="w-3 h-3 fill-pink-500/20 text-pink-400" />
+              <span className="font-mono text-[11px]">{msg.likes}</span>
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+

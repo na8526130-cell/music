@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { api } from '../services/api';
-import { ExploreData, Track } from '../types/music';
+import { ExploreData, Track, OriconTrack } from '../types/music';
 import { SafeImage } from '../components/SafeImage';
 import {
   Play,
@@ -14,6 +14,11 @@ import {
   Tv,
   ArrowRight,
   Sparkles,
+  Crown,
+  Trophy,
+  Headphones,
+  Download,
+  TrendingUp,
 } from 'lucide-react';
 
 export const HomeExploreView: React.FC = () => {
@@ -28,6 +33,8 @@ export const HomeExploreView: React.FC = () => {
     setSearchQuery,
     setInspectorOpen,
     startRadioForTrack,
+    setPlayerMode,
+    setVideoLayout,
   } = usePlayer();
 
   const [data, setData] = useState<ExploreData | null>(null);
@@ -39,6 +46,11 @@ export const HomeExploreView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Oricon Chart States
+  const [oriconType, setOriconType] = useState<'streaming' | 'digital'>('streaming');
+  const [oriconList, setOriconList] = useState<OriconTrack[]>([]);
+  const [oriconLoading, setOriconLoading] = useState(false);
+
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -47,6 +59,9 @@ export const HomeExploreView: React.FC = () => {
       .then(([res, higedan]) => {
         if (active) {
           setData(res);
+          if (res.oriconRanking) {
+            setOriconList(res.oriconRanking);
+          }
           if (higedan) {
             setHigedanData(higedan);
           }
@@ -64,6 +79,28 @@ export const HomeExploreView: React.FC = () => {
       active = false;
     };
   }, []);
+
+  const handleSwitchOriconType = async (type: 'streaming' | 'digital') => {
+    setOriconType(type);
+    if (type === 'digital' && data?.oriconDigital && data.oriconDigital.length > 0) {
+      setOriconList(data.oriconDigital);
+      return;
+    }
+    if (type === 'streaming' && data?.oriconRanking && data.oriconRanking.length > 0) {
+      setOriconList(data.oriconRanking);
+      return;
+    }
+
+    setOriconLoading(true);
+    try {
+      const items = await api.getOriconRanking(type);
+      setOriconList(items);
+    } catch {
+      // ignore
+    } finally {
+      setOriconLoading(false);
+    }
+  };
 
   const handleQuickGenreClick = (genre: string) => {
     setSearchQuery(genre);
@@ -369,6 +406,263 @@ export const HomeExploreView: React.FC = () => {
         </div>
       </section>
 
+      {/* Oricon Weekly Ranking Section (公式オリコンランキング) */}
+      <section id="oricon-ranking-section" className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-neutral-900/60 to-neutral-950 border border-amber-500/30 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-600 text-black flex items-center justify-center font-black shadow-lg shadow-amber-500/20 shrink-0">
+              <Crown className="w-5 h-5 fill-current" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
+                  <span>オリコン週間ランキング</span>
+                  <span className="text-[10px] sm:text-xs font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold uppercase tracking-wider">
+                    ORICON
+                  </span>
+                </h2>
+              </div>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                公式オリコンチャート集計（{oriconType === 'streaming' ? 'ストリーミング再生数ランキング' : 'デジタルシングルDL数ランキング'}）
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Chart Type Tabs */}
+            <div className="flex items-center bg-black/60 border border-neutral-800 rounded-xl p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => handleSwitchOriconType('streaming')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  oriconType === 'streaming'
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-md font-extrabold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Headphones className="w-3.5 h-3.5" />
+                <span>ストリーミング</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSwitchOriconType('digital')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  oriconType === 'digital'
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-md font-extrabold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>デジタルDL</span>
+              </button>
+            </div>
+
+            {/* Play All button */}
+            {oriconList.length > 0 && (
+              <button
+                type="button"
+                onClick={() => playTrack(oriconList[0], oriconList)}
+                className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer shrink-0"
+                title="オリコンランキングを全曲連続再生"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>全曲再生</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {oriconLoading ? (
+          <div className="py-12 flex flex-col items-center justify-center gap-3 text-neutral-400 bg-neutral-900/30 rounded-2xl border border-neutral-800/60">
+            <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+            <p className="text-xs">最新のオリコンランキングを取得中...</p>
+          </div>
+        ) : oriconList.length > 0 ? (
+          <div className="space-y-4">
+            {/* Top 3 Podium Spotlight Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              {oriconList.slice(0, 3).map((item, idx) => {
+                const isCurrent = currentTrack?.id === item.id;
+                const medalGradients = [
+                  'from-amber-500/25 via-yellow-950/20 to-neutral-950 border-amber-500/50 shadow-amber-950/30',
+                  'from-neutral-400/20 via-slate-900/20 to-neutral-950 border-neutral-500/40 shadow-neutral-950/30',
+                  'from-amber-700/20 via-orange-950/20 to-neutral-950 border-amber-700/40 shadow-orange-950/30',
+                ];
+                const medalBadges = [
+                  'bg-gradient-to-r from-amber-400 to-yellow-500 text-black shadow-amber-500/40',
+                  'bg-gradient-to-r from-slate-200 to-neutral-400 text-black shadow-slate-500/30',
+                  'bg-gradient-to-r from-amber-700 to-amber-600 text-white shadow-amber-900/30',
+                ];
+
+                return (
+                  <div
+                    key={item.id || idx}
+                    onClick={() => playTrack(item, oriconList)}
+                    className={`relative p-3.5 rounded-2xl border bg-gradient-to-b ${medalGradients[idx]} transition-all cursor-pointer group flex flex-col justify-between gap-3 overflow-hidden shadow-lg hover:scale-[1.01] active:scale-[0.99] ${
+                      isCurrent ? 'ring-2 ring-amber-400' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-black shadow-md flex items-center gap-1 ${medalBadges[idx]}`}>
+                          <Trophy className="w-3 h-3" />
+                          <span>#{item.rank || idx + 1}</span>
+                        </span>
+                        {item.metric && (
+                          <span className="text-[10px] font-mono font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md truncate max-w-[170px]">
+                            {item.metric}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* MV Quick Play Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          playTrack(item, oriconList);
+                          setPlayerMode('video');
+                          setVideoLayout('theater');
+                        }}
+                        className="px-2 py-1 bg-black/60 hover:bg-red-600 text-white rounded-md text-[10px] font-bold flex items-center gap-1 transition-colors border border-white/10 cursor-pointer"
+                        title="ミュージックビデオ（MV）で観る"
+                      >
+                        <Tv className="w-3 h-3 text-red-400 group-hover:text-white" />
+                        <span>MV</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-neutral-800 shrink-0 border border-white/10 shadow-md">
+                        <SafeImage
+                          src={item.thumbnail}
+                          alt={item.title}
+                          useBase64
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div
+                          className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${
+                            isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}
+                        >
+                          <Play className="w-5 h-5 fill-white text-white ml-0.5" />
+                        </div>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-extrabold text-white truncate group-hover:text-amber-400 transition-colors">
+                          {item.title}
+                        </h4>
+                        <p className="text-xs text-neutral-400 truncate mt-0.5 font-medium">
+                          {item.artist}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Ranks 4 to 10 in a clean ranked list */}
+            {oriconList.length > 3 && (
+              <div className="bg-neutral-900/40 border border-neutral-800/80 rounded-2xl overflow-hidden divide-y divide-neutral-800/60 shadow-xl">
+                {oriconList.slice(3, 10).map((item, idx) => {
+                  const isCurrent = currentTrack?.id === item.id;
+                  const isLiked = likedTrackIds.has(item.id);
+
+                  return (
+                    <div
+                      key={item.id || idx}
+                      onClick={() => playTrack(item, oriconList)}
+                      className={`flex items-center gap-3.5 px-4 py-3 hover:bg-neutral-800/50 group transition-colors cursor-pointer ${
+                        isCurrent ? 'bg-amber-950/20' : ''
+                      }`}
+                    >
+                      <span className="w-7 text-center text-xs font-mono font-bold text-neutral-500 group-hover:text-amber-400 tabular-nums">
+                        #{item.rank || idx + 4}
+                      </span>
+
+                      <div className="relative shrink-0 w-11 h-11 rounded-lg overflow-hidden bg-neutral-800">
+                        <SafeImage
+                          src={item.thumbnail}
+                          alt={item.title}
+                          useBase64
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div
+                          className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${
+                            isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}
+                        >
+                          <Play className="w-4 h-4 fill-white text-white ml-0.5" />
+                        </div>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={`text-sm font-semibold truncate ${
+                            isCurrent ? 'text-amber-400 font-bold' : 'text-white'
+                          }`}
+                        >
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-neutral-400 truncate mt-0.5 font-medium">
+                          {item.artist}
+                        </p>
+                      </div>
+
+                      {item.metric && (
+                        <span className="hidden md:inline-block text-[11px] font-mono text-neutral-400 bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800 truncate">
+                          {item.metric}
+                        </span>
+                      )}
+
+                      <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            playTrack(item, oriconList);
+                            setPlayerMode('video');
+                            setVideoLayout('theater');
+                          }}
+                          className="p-1.5 text-neutral-400 hover:text-red-400 rounded-lg hover:bg-white/10 transition-colors"
+                          title="MVで観る"
+                        >
+                          <Tv className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleLikeTrack(item);
+                          }}
+                          className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-white/10 transition-colors"
+                          title={isLiked ? 'いいね解除' : 'いいね'}
+                        >
+                          <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToQueue(item);
+                          }}
+                          className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                          title="キューに追加"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
+      </section>
+
       {/* Trending Songs Section */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
@@ -562,7 +856,11 @@ export const HomeExploreView: React.FC = () => {
             {data.musicVideos.slice(0, 8).map((vid) => (
               <div
                 key={vid.id}
-                onClick={() => playTrack(vid)}
+                onClick={() => {
+                  playTrack(vid);
+                  setPlayerMode('video');
+                  setVideoLayout('theater');
+                }}
                 className="group p-2.5 bg-neutral-900/40 hover:bg-neutral-800/60 border border-neutral-800/80 rounded-xl transition-all cursor-pointer flex flex-col gap-2"
               >
                 <div className="relative aspect-video rounded-lg overflow-hidden bg-neutral-800">

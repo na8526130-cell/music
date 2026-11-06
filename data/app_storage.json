@@ -1,5 +1,5 @@
 {
-  "totalAccessCount": 40,
+  "totalAccessCount": 89,
   "accounts": [
     {
       "id": "usr_1793521133121_m6do1",
@@ -32,6 +32,27 @@
           "id": "favorites",
           "name": "My Best Hits",
           "createdAt": "2026-11-01T08:12:17.673Z",
+          "tracks": []
+        }
+      ]
+    },
+    {
+      "id": "usr_1793697321885_lwf7o",
+      "username": "いか",
+      "passwordHash": "b2a62fb52fedc6c9ef2d5ed65157250d84980fd09efc699759053f9ee70f9a7d",
+      "email": "",
+      "registeredAt": "2026-11-03T09:15:21.885Z",
+      "lastActive": "2026-11-03T09:15:21.921Z",
+      "preferences": {
+        "newReleases": true,
+        "playlistUpdates": true,
+        "lyricsSync": true
+      },
+      "playlists": [
+        {
+          "id": "favorites",
+          "name": "My Best Hits",
+          "createdAt": "2026-11-03T08:54:22.825Z",
           "tracks": []
         }
       ]
@@ -79,9 +100,201 @@
       "updatedAt": "2026-11-01T08:28:40.605Z"
     }
   },
+  "sharedPlaylists": {},
+  "trackComments": {
+    "test_video_123": [
+      {
+        "id": "cmt_1793697668892_sbe2l",
+        "videoId": "test_video_123",
+        "timestampSec": 105,
+        "formattedTime": "01:45",
+        "text": "01:45 ここのギターソロ神！",
+        "username": "Aoi_Music",
+        "createdAt": "2026-11-03T09:21:08.892Z",
+        "likes": 0,
+        "likedBy": [],
+        "color": "#EF4444"
+      }
+    ]
+  },
+  "directMessages": [],
+  "listeningRooms": {
+    "room_rock": {
+      "id": "room_rock",
+      "name": "🎸 邦ロック・オルタナ熱血ラウンジ",
+      "description": "邦ロック・オルタナティブ・ギターロックの熱い曲をみんなで同時試聴して語り合う部屋",
+      "category": "rock",
+      "hostUsername": "RockMaster_Ken",
+      "currentTrack": {
+        "id": "GBRk_8hP47w",
+        "title": "怪獣の花唄",
+        "artist": "Vaundy",
+        "thumbnail": "https://i.ytimg.com/vi/GBRk_8hP47w/hqdefault.jpg",
+        "duration": "3:45",
+        "durationSeconds": 225
+      },
+      "isPlaying": true,
+      "positionSec": 42,
+      "updatedAt": 1793697641980,
+      "participants": [
+        {
+          "username": "RockMaster_Ken",
+          "joinedAt": "2026-11-03T08:20:41.980Z",
+          "isHost": true
+        },
+        {
+          "username": "GuitarLover",
+          "joinedAt": "2026-11-03T09:00:41.980Z",
+          "isHost": false
+        },
+        {
+          "username": "Aoi_Music",
+          "joinedAt": "2026-11-03T09:10:41.980Z",
+          "isHost": false
+        }
+      ],
+      "chatMessages": [
+        {
+          "id": "m1",
+          "username": "RockMaster_Ken",
+          "text": "怪獣の花唄！このサビの爆発力やばいよね",
+          "timestamp": "2026-11-03T09:17:41.980Z",
+          "type": "chat"
+        },
+        {
+          "id": "m2",
+          "username": "GuitarLover",
+          "text": "02:15のギターフレーズ神がかってる",
+          "timestamp": "2026-11-03T09:19:11.980Z",
+          "type": "chat"
+        }
+      ]
+    },
+    "room_chill": {
+      "id": "room_chill",
+      "name": "☕ 深夜のチル・Lo-Fi & R&B",
+      "description": "作業用BGMや夜更かしにぴったりの心地よいチルサウンドをまったり共有",
+      "category": "chill",
+      "hostUsername": "MidnightChill",
+      "currentTrack": {
+        "id": "jfKfPfyJRdk",
+        "title": "lofi hip hop radio - beats to relax/study to",
+        "artist": "Lofi Girl",
+        "thumbnail": "https://i.ytimg.com/vi/jfKfPfyJRdk/hqdefault.jpg",
+        "duration": "Live",
+        "durationSeconds": 3600
+      },
+      "isPlaying": true,
+      "positionSec": 120,
+      "updatedAt": 1793697641980,
+      "participants": [
+        {
+          "username": "MidnightChill",
+          "joinedAt": "2026-11-03T07:20:41.980Z",
+          "isHost": true
+        },
+        {
+          "username": "StudyMode",
+          "joinedAt": "2026-11-03T08:40:41.980Z",
+          "isHost": false
+        }
+      ],
+      "chatMessages": [
+        {
+          "id": "m3",
+          "username": "MidnightChill",
+          "text": "今夜も落ち着いて作業しましょう〜",
+          "timestamp": "2026-11-03T09:17:21.980Z",
+          "type": "chat"
+        }
+      ]
+    },
+    "room_vocaloid": {
+      "id": "room_vocaloid",
+      "name": "🎤 ボカロ & アニソン解放区",
+      "description": "ボーカロイドや人気アニメ主題歌、神調教・神メロディを語り合うルーム",
+      "category": "vocaloid",
+      "hostUsername": "MikuFan_99",
+      "currentTrack": {
+        "id": "cm-l2h6GB8Q",
+        "title": "メルト",
+        "artist": "supercell feat. 初音ミク",
+        "thumbnail": "https://i.ytimg.com/vi/cm-l2h6GB8Q/hqdefault.jpg",
+        "duration": "4:15",
+        "durationSeconds": 255
+      },
+      "isPlaying": true,
+      "positionSec": 75,
+      "updatedAt": 1793697641980,
+      "participants": [
+        {
+          "username": "MikuFan_99",
+          "joinedAt": "2026-11-03T08:50:41.980Z",
+          "isHost": true
+        },
+        {
+          "username": "RinLen",
+          "joinedAt": "2026-11-03T09:05:41.980Z",
+          "isHost": false
+        }
+      ],
+      "chatMessages": [
+        {
+          "id": "m4",
+          "username": "MikuFan_99",
+          "text": "伝説の神曲。イントロだけで鳥肌立つ",
+          "timestamp": "2026-11-03T09:18:41.980Z",
+          "type": "chat"
+        }
+      ]
+    },
+    "room_free": {
+      "id": "room_free",
+      "name": "🎧 オールジャンル・フリーセッション",
+      "description": "ジャンル問わず好きな曲を自由に流して新しい音楽と出会うオープンスペース",
+      "category": "free",
+      "hostUsername": "DJ_Zero",
+      "currentTrack": null,
+      "isPlaying": false,
+      "positionSec": 0,
+      "updatedAt": 1793697641980,
+      "participants": [
+        {
+          "username": "DJ_Zero",
+          "joinedAt": "2026-11-03T09:10:41.980Z",
+          "isHost": true
+        }
+      ],
+      "chatMessages": [
+        {
+          "id": "m5",
+          "username": "DJ_Zero",
+          "text": "誰でもおすすめ曲を流してください！",
+          "timestamp": "2026-11-03T09:15:41.980Z",
+          "type": "system"
+        }
+      ]
+    }
+  },
+  "socialNotifications": [],
+  "moderationReports": [],
+  "blockedUsers": {},
+  "follows": {},
+  "activityFeed": [
+    {
+      "id": "act_1793697668892_vlsg",
+      "timestamp": "2026-11-03T09:21:08.892Z",
+      "username": "Aoi_Music",
+      "action": "commented",
+      "targetTitle": "test_video_123",
+      "targetSubtitle": "01:45 - 01:45 ここのギターソロ神！",
+      "targetId": "test_video_123"
+    }
+  ],
+  "bannedUsers": [],
   "analytics": {
-    "totalPlaybackSeconds": 594,
-    "totalTracksPlayed": 3,
+    "totalPlaybackSeconds": 3728,
+    "totalTracksPlayed": 15,
     "trackPlays": {
       "dQw4w9WgXcQ": {
         "videoId": "dQw4w9WgXcQ",
@@ -106,6 +319,86 @@
         "thumbnail": "https://yt3.googleusercontent.com/PXleIRlQfniKVnPNrKJu6DLuvvZPgkgZdY0icaOBr3I9tTjUixNMu_iHM9lp37OYOxMLV2qd2BRb4JQ=w60-h60-s-l90-rj",
         "playCount": 1,
         "lastPlayed": "2026-11-02T11:16:16.150Z"
+      },
+      "mS7iQKWy9HU": {
+        "videoId": "mS7iQKWy9HU",
+        "title": "未完成なままで - Mikanseinamamade",
+        "artist": "Official hige dandism",
+        "thumbnail": "https://yt3.googleusercontent.com/ht0Sx8rSlphwJ1t796h_XopU92BjiEmXo0sV8yvwknJjAgDW0CRQExBNuqHc_Eo11liv61YbRjNMn2zY=w60-h60-l90-rj",
+        "playCount": 1,
+        "lastPlayed": "2026-11-03T09:03:33.500Z"
+      },
+      "Qi_n6KHDklU": {
+        "videoId": "Qi_n6KHDklU",
+        "title": "夕暮れ沿い - Yuugure Zoi",
+        "artist": "Official hige dandism",
+        "thumbnail": "https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGKxrwXYUv5tT1TaD8lHS-mE69Gr-phnIxMEKQI=w60-h60-l90-rj",
+        "playCount": 2,
+        "lastPlayed": "2026-11-03T09:19:53.441Z"
+      },
+      "1tnvHzkuMRk": {
+        "videoId": "1tnvHzkuMRk",
+        "title": "Hello",
+        "artist": "Official HIGE DANdism",
+        "thumbnail": "https://yt3.googleusercontent.com/sI7_9lx2mav0Fod45Qf1RTMvqZJJbjOFbV7jnSunl4Vrh8Ept83YL7C4QMyd5njAafv5WmuR-R7CPZX0-Q=w60-h60-l90-rj",
+        "playCount": 1,
+        "lastPlayed": "2026-11-03T09:07:33.118Z"
+      },
+      "uXMsI4yTSeM": {
+        "videoId": "uXMsI4yTSeM",
+        "title": "旅は道連れ - Tabi wa Michizure",
+        "artist": "Official Hige Dandism",
+        "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w60-h60-l90-rj",
+        "playCount": 1,
+        "lastPlayed": "2026-11-03T09:07:40.504Z"
+      },
+      "xiuOSWPsIyM": {
+        "videoId": "xiuOSWPsIyM",
+        "title": "Subtitle",
+        "artist": "OFFICIAL HIGE DANDISM",
+        "thumbnail": "https://yt3.googleusercontent.com/bO6hK6VtmZ0piwHf_uWJgZH-ROXkG268lqzk-nelxTj2Ktln1x8clJLCPLTvgSH2RSYQdgrspfBT7VY=w60-h60-l90-rj",
+        "playCount": 2,
+        "lastPlayed": "2026-11-03T09:09:55.936Z"
+      },
+      "sHnUEWvSCDs": {
+        "videoId": "sHnUEWvSCDs",
+        "title": "Rowan",
+        "artist": "Official Hige Dandism",
+        "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w60-h60-l90-rj",
+        "playCount": 1,
+        "lastPlayed": "2026-11-03T09:07:48.466Z"
+      },
+      "ME_ZU0ME4vQ": {
+        "videoId": "ME_ZU0ME4vQ",
+        "title": "ゼロのままでいられたら - Zero no mamade iraretara",
+        "artist": "Official hige dandism",
+        "thumbnail": "https://yt3.googleusercontent.com/H1ZIqxKiFEWcbSg5x_5pDXmyyJiEhBw4qEUmiUkIA9_wZ_wdAjni5Y6fDXbFOsNxeoIR6SxIipiFDhu2=w60-h60-l90-rj",
+        "playCount": 1,
+        "lastPlayed": "2026-11-03T09:16:08.521Z"
+      },
+      "qrtKLNTB71c": {
+        "videoId": "qrtKLNTB71c",
+        "title": "SWEET TWEET",
+        "artist": "Unknown Artist",
+        "thumbnail": "",
+        "playCount": 1,
+        "lastPlayed": "2026-11-03T09:16:56.732Z"
+      },
+      "3MPrtzPA-t8": {
+        "videoId": "3MPrtzPA-t8",
+        "title": "雪急く朝が来る - Yuki Seku Asa Ga Kuru",
+        "artist": "Unknown Artist",
+        "thumbnail": "",
+        "playCount": 1,
+        "lastPlayed": "2026-11-03T09:17:05.059Z"
+      },
+      "n0e0y01w92A": {
+        "videoId": "n0e0y01w92A",
+        "title": "恋の前ならえ - Koi No Mae Narae",
+        "artist": "Unknown Artist",
+        "thumbnail": "",
+        "playCount": 1,
+        "lastPlayed": "2026-11-03T09:19:48.968Z"
       }
     },
     "searchQueries": {
@@ -121,24 +414,25 @@
       }
     },
     "hourlyVisits": {
-      "11": 16
+      "9": 46,
+      "11": 19
     },
     "clientDevices": {
       "desktop": 1,
-      "mobile": 15,
+      "mobile": 64,
       "tablet": 0
     },
     "clientBrowsers": {
-      "Safari": 15,
+      "Safari": 64,
       "Other": 1
     },
     "clientOS": {
-      "macOS": 15,
+      "macOS": 64,
       "Other": 1
     },
     "lyricsStats": {
-      "views": 4,
-      "syncedHits": 3,
+      "views": 14,
+      "syncedHits": 13,
       "plainHits": 0,
       "notFound": 1
     },
