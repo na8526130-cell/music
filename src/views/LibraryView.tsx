@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import {
   Heart,
@@ -15,8 +15,15 @@ import {
   UploadCloud,
   Music,
   FileAudio,
+  Sparkles,
+  WifiOff,
 } from 'lucide-react';
 import { parseLocalAudioFile } from '../services/localTracks';
+import {
+  getAllOfflineTracks,
+  deleteOfflineTrack,
+  seedDemoOfflineTrack,
+} from '../services/offlineStorage';
 import { Track } from '../types/music';
 
 export const LibraryView: React.FC = () => {
@@ -40,11 +47,27 @@ export const LibraryView: React.FC = () => {
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
 
-  // Local tracks state
+  // Local tracks state & IndexedDB persistence
   const [localTracks, setLocalTracks] = useState<Track[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const [isAddingDemo, setIsAddingDemo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load persistently stored tracks from IndexedDB on mount
+  useEffect(() => {
+    let isMounted = true;
+    getAllOfflineTracks()
+      .then((stored) => {
+        if (isMounted) {
+          setLocalTracks(stored);
+        }
+      })
+      .catch((err) => console.warn('[LibraryView] Could not load offline tracks:', err));
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleAudioFiles = async (files: FileList | File[]) => {
     const audioFiles = Array.from(files).filter(
@@ -62,8 +85,20 @@ export const LibraryView: React.FC = () => {
         console.warn('Failed to parse audio file:', file.name, err);
       }
     }
-    setLocalTracks((prev) => [...prev, ...parsed]);
+    setLocalTracks((prev) => [...parsed, ...prev]);
     setIsProcessingFiles(false);
+  };
+
+  const handleSeedDemo = async () => {
+    setIsAddingDemo(true);
+    try {
+      const demo = await seedDemoOfflineTrack();
+      setLocalTracks((prev) => [demo, ...prev.filter((t) => t.id !== demo.id)]);
+    } catch (err) {
+      console.warn('Failed to seed demo track:', err);
+    } finally {
+      setIsAddingDemo(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -74,7 +109,8 @@ export const LibraryView: React.FC = () => {
     }
   };
 
-  const removeLocalTrack = (id: string) => {
+  const removeLocalTrack = async (id: string) => {
+    await deleteOfflineTrack(id).catch(() => {});
     setLocalTracks((prev) => prev.filter((t) => t.id !== id));
   };
 
@@ -101,101 +137,80 @@ export const LibraryView: React.FC = () => {
           </h1>
         </div>
 
-        {/* Tab switch */}
-        <div className="flex items-center gap-1.5 p-1 bg-neutral-900 border border-neutral-800 rounded-xl">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('liked');
-              setSelectedPlaylistId(null);
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
-              activeTab === 'liked' && !selectedPlaylistId
-                ? 'bg-neutral-800 text-white shadow-sm'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-            <span>お気に入り ({likedTracks.length})</span>
-          </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Tab switch */}
+          <div className="flex items-center gap-1.5 p-1 bg-neutral-900 border border-neutral-800 rounded-xl overflow-x-auto scrollbar-none">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('liked');
+                setSelectedPlaylistId(null);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                activeTab === 'liked' && !selectedPlaylistId
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+              <span>お気に入り ({likedTracks.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('history');
+                setSelectedPlaylistId(null);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                activeTab === 'history' && !selectedPlaylistId
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>最近の再生 ({recentTracks.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('playlists')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                activeTab === 'playlists' || selectedPlaylistId
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Library className="w-3.5 h-3.5 text-red-500" />
+              <span>プレイリスト ({userPlaylists.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('local');
+                setSelectedPlaylistId(null);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                activeTab === 'local' && !selectedPlaylistId
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <FolderDown className="w-3.5 h-3.5 text-cyan-400" />
+              <span>ローカル音源 ({localTracks.length})</span>
+            </button>
+          </div>
 
           <button
             type="button"
-            onClick={() => {
-              setActiveTab('history');
-              setSelectedPlaylistId(null);
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
-              activeTab === 'history' && !selectedPlaylistId
-                ? 'bg-neutral-800 text-white shadow-sm'
-                : 'text-neutral-400 hover:text-white'
-            }`}
+            onClick={() => setImportModalOpen(true)}
+            className="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-red-600/20 active:scale-95 transition-all shrink-0 cursor-pointer"
           >
-            <History className="w-3.5 h-3.5" />
-            <span>最近の再生 ({recentTracks.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('playlists')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
-              activeTab === 'playlists' || selectedPlaylistId
-                ? 'bg-neutral-800 text-white shadow-sm'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            <Library className="w-3.5 h-3.5 text-red-500" />
-            <span>プレイリスト ({userPlaylists.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('local');
-              setSelectedPlaylistId(null);
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
-              activeTab === 'local' && !selectedPlaylistId
-                ? 'bg-neutral-800 text-white shadow-sm'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            <FolderDown className="w-3.5 h-3.5 text-cyan-400" />
-            <span>ローカル音源 ({localTracks.length})</span>
+            <Link2 className="w-3.5 h-3.5" />
+            <span>URLインポート</span>
           </button>
         </div>
-      </div>
-
-      {/* Highlighted Import Action Banner */}
-      <div className="relative overflow-hidden rounded-2xl p-5 sm:p-6 bg-gradient-to-r from-red-950/40 via-neutral-900 to-purple-950/40 border border-red-500/30 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-red-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-red-600/30 shrink-0">
-            <Link2 className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-600/30 text-red-300 border border-red-500/40 uppercase tracking-wider">
-                一括インポート機能
-              </span>
-              <span className="text-xs text-neutral-400">YouTube & Spotify 対応</span>
-            </div>
-            <h2 className="text-base sm:text-lg font-bold text-white">
-              プレイリストURLから全曲を一発インポート
-            </h2>
-            <p className="text-xs text-neutral-300 max-w-xl">
-              YouTubeの再生リストURLやSpotifyのURLを貼り付けるだけで、楽曲を自動解析して一括再生・マイプレイリストへ保存できます。
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setImportModalOpen(true)}
-          className="px-5 py-3 bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 active:scale-95 transition-all shrink-0 cursor-pointer"
-        >
-          <Link2 className="w-4 h-4" />
-          <span>URLからインポートする</span>
-        </button>
       </div>
 
       {/* Liked Tracks View */}
@@ -577,20 +592,20 @@ export const LibraryView: React.FC = () => {
       {/* Local Tracks View */}
       {activeTab === 'local' && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-cyan-950/40 via-neutral-900 to-blue-950/40 border border-cyan-500/20 rounded-2xl">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 bg-gradient-to-r from-cyan-950/40 via-neutral-900 to-blue-950/40 border border-cyan-500/20 rounded-2xl shadow-xl">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-xl bg-cyan-600 flex items-center justify-center text-white shadow-xl shadow-cyan-600/30">
+              <div className="w-16 h-16 rounded-xl bg-cyan-600 flex items-center justify-center text-white shadow-xl shadow-cyan-600/30 shrink-0">
                 <FolderDown className="w-8 h-8" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">ローカル音源の取り込み</h2>
+                <h2 className="text-xl font-bold text-white">ローカル音源</h2>
                 <p className="text-xs text-neutral-400 mt-0.5">
-                  端末内の音源ファイル（MP3 / WAV / FLAC / M4A / AAC）をストリーミング曲と一緒に再生 ({localTracks.length}曲)
+                  {localTracks.length}曲
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -599,6 +614,19 @@ export const LibraryView: React.FC = () => {
                 onChange={(e) => e.target.files && handleAudioFiles(e.target.files)}
                 className="hidden"
               />
+
+              {/* Instant sample audio generator for offline testing */}
+              <button
+                type="button"
+                onClick={handleSeedDemo}
+                disabled={isAddingDemo}
+                className="px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-cyan-300 border border-cyan-500/30 text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow transition-all active:scale-95 cursor-pointer"
+                title="音源ファイルが手元にない場合でも、ブラウザ内で直接Lo-Fiサウンドを自動合成してオフライン再生を即座に試せます"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{isAddingDemo ? '生成中...' : '🎵 サンプル音源を追加'}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -606,7 +634,7 @@ export const LibraryView: React.FC = () => {
                 className="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-lg shadow-cyan-600/20 transition-transform active:scale-95 cursor-pointer"
               >
                 <UploadCloud className="w-4 h-4" />
-                <span>{isProcessingFiles ? '解析中...' : 'ファイルを選択'}</span>
+                <span>{isProcessingFiles ? '保存中...' : 'ファイルを選択'}</span>
               </button>
 
               {localTracks.length > 0 && (

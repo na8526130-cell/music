@@ -26,6 +26,9 @@ import {
   Share2,
   AppWindow,
   MessageSquare,
+  Maximize2,
+  Moon,
+  Gauge,
 } from 'lucide-react';
 
 function formatSeconds(secs: number): string {
@@ -54,6 +57,13 @@ export const PlayerBar: React.FC = () => {
     cycleRepeat,
     isShuffle,
     toggleShuffle,
+    shuffleMode,
+    cycleShuffleMode,
+    playbackRate,
+    setPlaybackRate,
+    sleepTimerRemaining,
+    sleepTimerMode,
+    setSleepTimerModalOpen,
     playerMode,
     setPlayerMode,
     setVideoLayout,
@@ -87,9 +97,12 @@ export const PlayerBar: React.FC = () => {
     danmakuEnabled,
     setDanmakuEnabled,
     setStoryModalOpen,
+    fullScreenPlayerOpen,
+    setFullScreenPlayerOpen,
   } = usePlayer();
 
   const [crossfadeMenuOpen, setCrossfadeMenuOpen] = useState(false);
+  const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
 
   const [isHoveringProgress, setIsHoveringProgress] = useState(false);
   const [hoverPositionSec, setHoverPositionSec] = useState(0);
@@ -114,57 +127,134 @@ export const PlayerBar: React.FC = () => {
   };
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-40 bg-[#0d0d0f]/98 backdrop-blur-xl border-t border-neutral-800/80 px-4 md:px-6 py-2.5 shadow-2xl">
-      {/* Mini top progress indicator bar for high-precision scrub */}
+    <>
+      {/* MOBILE MINI-PLAYER (Floating pill matching Image 1, docked above BottomTabBar) */}
       <div
-        className="absolute top-0 left-0 right-0 h-1 bg-neutral-800 cursor-pointer group"
-        onClick={handleProgressClick}
-        onMouseMove={handleProgressMouseMove}
-        onMouseEnter={() => setIsHoveringProgress(true)}
-        onMouseLeave={() => setIsHoveringProgress(false)}
+        onClick={() => setFullScreenPlayerOpen(true)}
+        className="sm:hidden fixed bottom-[68px] left-2 right-2 z-40 bg-[#14080a]/95 backdrop-blur-xl border border-red-950/50 rounded-xl p-2 shadow-2xl flex items-center justify-between gap-2.5 cursor-pointer active:scale-[0.99] transition-transform overflow-hidden"
       >
-        <div
-          className="h-full bg-red-600 transition-all duration-100 relative group-hover:bg-red-500"
-          style={{ width: `${percent}%` }}
-        >
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md scale-0 group-hover:scale-100 transition-transform" />
-        </div>
-        {isHoveringProgress && duration > 0 && (
-          <div
-            className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-[11px] text-white font-mono pointer-events-none"
-            style={{ left: `${(hoverPositionSec / duration) * 100}%` }}
-          >
-            {formatSeconds(hoverPositionSec)}
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between gap-4">
-        {/* Left Section: Track Info */}
-        <div className="flex items-center gap-3.5 min-w-0 w-1/4 sm:w-1/3">
-          <div className="relative group shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="relative shrink-0">
             <SafeImage
               src={currentTrack.thumbnail}
               alt={currentTrack.title}
               useBase64
-              className="w-12 h-12 md:w-14 md:h-14 rounded-md object-cover bg-neutral-800 shadow"
+              className="w-10 h-10 rounded-lg object-cover bg-neutral-800 shadow"
             />
-            {/* Visualizer dot */}
             {isPlaying && (
-              <span className="absolute bottom-1 right-1 flex h-2 w-2">
+              <span className="absolute bottom-0.5 right-0.5 flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
               </span>
             )}
           </div>
-
-          <div className="flex flex-col min-w-0 pr-2">
-            <h4
-              className="text-sm font-semibold text-white truncate hover:underline cursor-pointer"
-              title={currentTrack.title}
-            >
+          <div className="min-w-0 flex-1">
+            <h4 className="text-xs font-bold text-white truncate">
               {currentTrack.title}
             </h4>
+            <p className="text-[11px] text-neutral-400 truncate">
+              {currentTrack.artist}
+            </p>
+          </div>
+        </div>
+
+        {/* Mobile right quick actions (Heart + Play/Pause) */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleLikeTrack(currentTrack);
+            }}
+            className="p-1.5 text-neutral-400 hover:text-red-500 transition-colors"
+            title={isLiked ? 'お気に入りから削除' : 'お気に入りに追加'}
+          >
+            <Heart
+              className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-neutral-400'}`}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePlay();
+            }}
+            className="p-1.5 text-white hover:text-red-400 transition-colors"
+            title={isPlaying ? '一時停止' : '再生'}
+          >
+            {isPlaying ? (
+              <Pause className="w-5 h-5 fill-current" />
+            ) : (
+              <Play className="w-5 h-5 fill-current ml-0.5" />
+            )}
+          </button>
+        </div>
+
+        {/* Thin bottom progress line along bottom of mobile card */}
+        <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-neutral-800/80 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-red-600 rounded-full transition-all duration-100"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* DESKTOP PLAYER BAR (Full controls bar across bottom on tablet / desktop) */}
+      <footer className="hidden sm:block fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0c]/98 backdrop-blur-xl border-t border-red-950/40 px-4 md:px-6 py-2.5 shadow-2xl">
+        {/* Mini top progress indicator bar for high-precision scrub */}
+        <div
+          className="absolute top-0 left-0 right-0 h-1 bg-neutral-800 cursor-pointer group"
+          onClick={handleProgressClick}
+          onMouseMove={handleProgressMouseMove}
+          onMouseEnter={() => setIsHoveringProgress(true)}
+          onMouseLeave={() => setIsHoveringProgress(false)}
+        >
+          <div
+            className="h-full bg-red-600 transition-all duration-100 relative group-hover:bg-red-500"
+            style={{ width: `${percent}%` }}
+          >
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md scale-0 group-hover:scale-100 transition-transform" />
+          </div>
+          {isHoveringProgress && duration > 0 && (
+            <div
+              className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-[11px] text-white font-mono pointer-events-none"
+              style={{ left: `${(hoverPositionSec / duration) * 100}%` }}
+            >
+              {formatSeconds(hoverPositionSec)}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          {/* Left Section: Track Info (Clicking opens FullScreenPlayer) */}
+          <div className="flex items-center gap-3.5 min-w-0 w-1/4 sm:w-1/3">
+            <div
+              className="relative group shrink-0 cursor-pointer"
+              onClick={() => setFullScreenPlayerOpen(true)}
+              title="フルスクリーン表示"
+            >
+              <SafeImage
+                src={currentTrack.thumbnail}
+                alt={currentTrack.title}
+                useBase64
+                className="w-12 h-12 md:w-14 md:h-14 rounded-md object-cover bg-neutral-800 shadow group-hover:opacity-90 transition-opacity"
+              />
+              {isPlaying && (
+                <span className="absolute bottom-1 right-1 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col min-w-0 pr-2">
+              <h4
+                className="text-sm font-semibold text-white truncate hover:text-red-400 cursor-pointer transition-colors"
+                title={currentTrack.title}
+                onClick={() => setFullScreenPlayerOpen(true)}
+              >
+                {currentTrack.title}
+              </h4>
             <div className="flex items-center gap-1.5 text-xs text-neutral-400 truncate">
               <button
                 type="button"
@@ -180,7 +270,19 @@ export const PlayerBar: React.FC = () => {
               {currentTrack.album && (
                 <>
                   <span aria-hidden="true" className="text-neutral-600">·</span>
-                  <span className="truncate hidden sm:inline text-neutral-500">{currentTrack.album}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const albumTarget = currentTrack.albumId || currentTrack.album;
+                      if (albumTarget) {
+                        navigateTo('album', albumTarget);
+                      }
+                    }}
+                    className="truncate hidden sm:inline text-neutral-500 hover:text-white hover:underline cursor-pointer"
+                    title="アルバムの曲一覧を表示"
+                  >
+                    {currentTrack.album}
+                  </button>
                 </>
               )}
             </div>
@@ -213,7 +315,7 @@ export const PlayerBar: React.FC = () => {
             type="button"
             onClick={() => startRadioForTrack(currentTrack)}
             title="この曲からエンドレス・ラジオを開始（類似曲を自動補充）"
-            className="p-1.5 text-neutral-400 hover:text-purple-400 transition-colors shrink-0 hidden md:block"
+            className="p-1.5 text-neutral-400 hover:text-red-400 transition-colors shrink-0 hidden md:block"
           >
             <Sparkles className="w-4 h-4 md:w-4.5 md:h-4.5" />
           </button>
@@ -225,13 +327,24 @@ export const PlayerBar: React.FC = () => {
           <div className="flex items-center gap-3 md:gap-5">
             <button
               type="button"
-              onClick={toggleShuffle}
-              title={isShuffle ? 'シャッフル解除' : 'シャッフル再生'}
-              className={`p-1.5 transition-colors ${
-                isShuffle ? 'text-red-500' : 'text-neutral-400 hover:text-white'
+              onClick={cycleShuffleMode}
+              title={
+                shuffleMode === 'smart'
+                  ? 'スマートシャッフル: ON (類似おすすめ曲を自動注入)'
+                  : shuffleMode === 'on'
+                  ? '通常シャッフル: ON'
+                  : 'シャッフル: OFF'
+              }
+              className={`relative p-1.5 transition-colors cursor-pointer ${
+                shuffleMode !== 'off' ? 'text-red-500' : 'text-neutral-400 hover:text-white'
               }`}
             >
               <Shuffle className="w-4 h-4" />
+              {shuffleMode === 'smart' && (
+                <span className="absolute -top-1 -right-1 text-[9px] font-bold text-red-400 animate-pulse select-none">
+                  ✨
+                </span>
+              )}
             </button>
 
             <button
@@ -306,30 +419,30 @@ export const PlayerBar: React.FC = () => {
               onClick={toggleBackgroundPlayback}
               title={
                 backgroundPlaybackEnabled
-                  ? 'バックグラウンド再生: 有効 (画面オフ・他アプリ・別タブでも停止しません)'
-                  : 'バックグラウンド再生: 無効 (クリックして有効化)'
+                  ? 'バックグラウンド再生: 有効'
+                  : 'バックグラウンド再生: 無効'
               }
               className={`px-2 py-1 rounded-md text-xs flex items-center gap-1.5 transition-colors ${
                 backgroundPlaybackEnabled
-                  ? 'bg-emerald-950/70 border border-emerald-800/60 text-emerald-300'
+                  ? 'bg-red-950/70 border border-red-800/60 text-red-300'
                   : 'bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white'
               }`}
             >
               <ShieldCheck
                 className={`w-3.5 h-3.5 ${
-                  backgroundPlaybackEnabled ? 'text-emerald-400' : 'text-neutral-500'
+                  backgroundPlaybackEnabled ? 'text-red-400' : 'text-neutral-500'
                 }`}
               />
               <span className="hidden xl:inline text-[11px] font-medium">BG再生</span>
               {backgroundPlaybackEnabled && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
               )}
             </button>
             <button
               type="button"
               onClick={() => setBgGuideOpen(true)}
               className="p-1 text-neutral-500 hover:text-white text-xs rounded hover:bg-neutral-800 transition-colors"
-              title="バックグラウンド再生の使い方（スマホのロック画面再生方法など）"
+              title="バックグラウンド再生の使い方"
             >
               <HelpCircle className="w-3.5 h-3.5" />
             </button>
@@ -339,23 +452,19 @@ export const PlayerBar: React.FC = () => {
           <button
             type="button"
             onClick={toggleEndlessRadio}
-            title={
-              endlessRadioActive
-                ? 'エンドレス・ラジオ: ON (キューの残りが少なくなると類似曲を自動補充し無限再生)'
-                : 'エンドレス・ラジオ: OFF (クリックして有効化)'
-            }
+            title={endlessRadioActive ? 'ラジオモード: ON' : 'ラジオモード: OFF'}
             className={`px-2 py-1 rounded-md text-xs flex items-center gap-1.5 transition-colors ${
               endlessRadioActive
-                ? 'bg-purple-950/70 border border-purple-800/60 text-purple-300'
+                ? 'bg-red-950/70 border border-red-800/60 text-red-300'
                 : 'bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white'
             }`}
           >
             <Radio
-              className={`w-3.5 h-3.5 ${endlessRadioActive ? 'text-purple-400' : 'text-neutral-500'}`}
+              className={`w-3.5 h-3.5 ${endlessRadioActive ? 'text-red-400' : 'text-neutral-500'}`}
             />
             <span className="hidden xl:inline text-[11px] font-medium">ラジオ</span>
             {endlessRadioActive && (
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
             )}
           </button>
 
@@ -369,13 +478,13 @@ export const PlayerBar: React.FC = () => {
               }`}
               className={`px-2 py-1 rounded-md text-xs flex items-center gap-1.5 transition-colors ${
                 crossfadeDuration > 0
-                  ? 'bg-amber-950/60 border border-amber-800/50 text-amber-300'
+                  ? 'bg-red-950/60 border border-red-800/50 text-red-300'
                   : 'bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white'
               }`}
             >
               <Sliders
                 className={`w-3.5 h-3.5 ${
-                  crossfadeDuration > 0 ? 'text-amber-400' : 'text-neutral-500'
+                  crossfadeDuration > 0 ? 'text-red-400' : 'text-neutral-500'
                 }`}
               />
               <span className="hidden xl:inline text-[11px] font-medium">
@@ -416,6 +525,87 @@ export const PlayerBar: React.FC = () => {
             )}
           </div>
 
+          {/* Spotify Sleep Timer */}
+          <button
+            type="button"
+            onClick={() => setSleepTimerModalOpen(true)}
+            title={
+              sleepTimerMode !== null
+                ? `スリープタイマー作動中: ${
+                    sleepTimerMode === 'end_of_track'
+                      ? 'この曲の終了時'
+                      : `残り約${sleepTimerRemaining ? Math.ceil(sleepTimerRemaining / 60) : 0}分`
+                  }`
+                : 'スリープタイマーを設定 (おやすみタイマー)'
+            }
+            className={`px-2 py-1 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
+              sleepTimerMode !== null
+                ? 'bg-red-950/70 border border-red-700/60 text-red-300 shadow-sm shadow-red-950/50'
+                : 'bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white'
+            }`}
+          >
+            <Moon
+              className={`w-3.5 h-3.5 ${
+                sleepTimerMode !== null ? 'text-red-400 fill-red-400/40' : 'text-neutral-500'
+              }`}
+            />
+            <span className="hidden xl:inline text-[11px] font-medium font-mono">
+              {sleepTimerMode === null
+                ? 'タイマー'
+                : sleepTimerMode === 'end_of_track'
+                ? '曲末'
+                : `${sleepTimerRemaining ? Math.ceil(sleepTimerRemaining / 60) : 0}m`}
+            </span>
+            {sleepTimerMode !== null && (
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+            )}
+          </button>
+
+          {/* Spotify Playback Speed Selector */}
+          <div className="relative hidden xl:block">
+            <button
+              type="button"
+              onClick={() => setSpeedMenuOpen((prev) => !prev)}
+              title={`再生速度: ${playbackRate}x`}
+              className={`px-2 py-1 rounded-md text-xs flex items-center gap-1 font-mono transition-colors cursor-pointer ${
+                playbackRate !== 1
+                  ? 'bg-red-950/70 border border-red-700/60 text-red-300'
+                  : 'bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Gauge className="w-3.5 h-3.5 text-neutral-400" />
+              <span className="text-[11px] font-bold">{playbackRate}x</span>
+            </button>
+            {speedMenuOpen && (
+              <div
+                className="absolute bottom-full right-0 mb-2 w-32 p-1.5 rounded-xl bg-[#14141a] border border-white/10 shadow-2xl z-50 text-xs space-y-0.5 animate-in fade-in"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-2 py-1 text-[10px] font-semibold text-neutral-400 border-b border-white/5 pb-1 mb-1">
+                  再生速度
+                </div>
+                {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    onClick={() => {
+                      setPlaybackRate(rate);
+                      setSpeedMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-2 py-1 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                      playbackRate === rate
+                        ? 'bg-red-600 text-white font-bold'
+                        : 'text-neutral-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <span>{rate}x</span>
+                    {playbackRate === rate && <span className="text-[10px]">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Screen Wake Lock Toggle */}
           <button
             type="button"
@@ -423,7 +613,7 @@ export const PlayerBar: React.FC = () => {
             title={wakeLockActive ? '画面常時点灯: ON' : '画面常時点灯: OFF (スリープ防止)'}
             className={`hidden 2xl:flex p-1.5 rounded-md text-xs items-center gap-1 transition-colors ${
               wakeLockActive
-                ? 'bg-amber-950/60 text-amber-300 border border-amber-800/50'
+                ? 'bg-red-950/60 text-red-300 border border-red-800/50'
                 : 'text-neutral-400 hover:text-white'
             }`}
           >
@@ -467,7 +657,7 @@ export const PlayerBar: React.FC = () => {
           <button
             type="button"
             onClick={() => setLyricsOpen((prev) => !prev)}
-            title="歌詞を表示 (InnerTube)"
+            title="歌詞を表示"
             className={`p-2 rounded-lg transition-colors ${
               lyricsOpen ? 'bg-red-600/20 text-red-500' : 'text-neutral-400 hover:text-white'
             }`}
@@ -509,8 +699,8 @@ export const PlayerBar: React.FC = () => {
             title="10バンド・オーディオイコライザー & 重低音ブースト"
             className={`p-2 rounded-lg transition-colors ${
               eqModalOpen
-                ? 'bg-amber-600/20 text-amber-400'
-                : 'text-neutral-400 hover:text-amber-400'
+                ? 'bg-red-600/20 text-red-400'
+                : 'text-neutral-400 hover:text-red-400'
             }`}
           >
             <Sliders className="w-4 h-4 md:w-5 md:h-5" />
@@ -521,7 +711,7 @@ export const PlayerBar: React.FC = () => {
             type="button"
             onClick={() => openShareModal('track')}
             title="ワンクリックで友達にシェア (URL発行)"
-            className="p-2 rounded-lg text-neutral-400 hover:text-blue-400 transition-colors"
+            className="p-2 rounded-lg text-neutral-400 hover:text-red-400 transition-colors"
           >
             <Share2 className="w-4 h-4 md:w-5 md:h-5" />
           </button>
@@ -580,8 +770,19 @@ export const PlayerBar: React.FC = () => {
               className="w-16 lg:w-20 accent-red-600 h-1 bg-neutral-800 rounded-lg cursor-pointer"
             />
           </div>
+
+          {/* Full Screen Player Maximize Button */}
+          <button
+            type="button"
+            onClick={() => setFullScreenPlayerOpen(true)}
+            title="フルスクリーン再生画面を開く"
+            className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
+          </button>
         </div>
       </div>
     </footer>
+    </>
   );
 };

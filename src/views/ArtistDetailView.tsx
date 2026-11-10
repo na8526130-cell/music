@@ -65,7 +65,7 @@ export const ArtistDetailView: React.FC = () => {
     return (
       <div className="py-32 flex flex-col items-center justify-center gap-3 text-neutral-400">
         <Loader2 className="w-8 h-8 animate-spin text-red-500" />
-        <p className="text-xs">InnerTubeからアーティスト情報を取得中...</p>
+        <p className="text-xs">アーティスト情報を読み込み中...</p>
       </div>
     );
   }

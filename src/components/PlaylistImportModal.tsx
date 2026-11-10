@@ -166,7 +166,29 @@ export const PlaylistImportModal: React.FC = () => {
 
           {/* Quick Preset Samples */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-neutral-400">サンプルをお試し:</span>
+            <span className="text-neutral-400">ワンタップで試す:</span>
+            <button
+              onClick={() =>
+                handleSampleClick(
+                  'https://open.spotify.com/playlist/37i9dQZF1DXdbXrPNafg9d'
+                )
+              }
+              className="px-2.5 py-1 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 transition-colors font-medium flex items-center gap-1.5 cursor-pointer"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              Spotify Tokyo Super Hits
+            </button>
+            <button
+              onClick={() =>
+                handleSampleClick(
+                  'https://open.spotify.com/playlist/37i9dQZEVXbKXQhVTyLWIo'
+                )
+              }
+              className="px-2.5 py-1 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 transition-colors font-medium flex items-center gap-1.5 cursor-pointer"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              Spotify 日本 Top 50
+            </button>
             <button
               onClick={() =>
                 handleSampleClick(
@@ -176,17 +198,7 @@ export const PlaylistImportModal: React.FC = () => {
               className="px-2.5 py-1 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 transition-colors font-medium flex items-center gap-1.5 cursor-pointer"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              Spotify グローバルトップ
-            </button>
-            <button
-              onClick={() =>
-                handleSampleClick(
-                  'https://www.youtube.com/playlist?list=PL4fGSI1pDJn6jXS_PEoNED9nII373KSUn'
-                )
-              }
-              className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
-            >
-              日本の人気チャート
+              Spotify Global Hits
             </button>
             <button
               onClick={() =>
@@ -194,9 +206,9 @@ export const PlaylistImportModal: React.FC = () => {
                   'https://www.youtube.com/playlist?list=PLDIoUOhQQPlXr63I_vwF9GD8sAKh77dWU'
                 )
               }
-              className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/30 transition-colors font-medium cursor-pointer"
             >
-              髭男コレクション
+              YouTube 髭男公式リスト
             </button>
           </div>
 
@@ -206,9 +218,6 @@ export const PlaylistImportModal: React.FC = () => {
               <Loader2 size={18} className="animate-spin text-red-500 shrink-0" />
               <div className="text-xs text-neutral-300">
                 <p className="font-semibold text-white">プレイリストを解析中...</p>
-                <p className="text-neutral-400 text-[11px] mt-0.5">
-                  Spotify / YouTubeの楽曲メタデータを抽出し、YouTube Musicの音源と照合しています
-                </p>
               </div>
             </div>
           )}

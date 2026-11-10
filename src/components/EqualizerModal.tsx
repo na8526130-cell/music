@@ -110,14 +110,11 @@ export const EqualizerModal: React.FC<EqualizerModalProps> = ({ isOpen, onClose 
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-white tracking-wide">
-                  10バンド・プロフェッショナルEQ
+                  イコライザー & 音質調整
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider bg-red-950/80 text-red-400 border border-red-800/40">
-                  WEB AUDIO DSP
-                </span>
               </div>
-              <p className="text-xs text-neutral-400">
-                Web Audio API フィルタと重低音ブーストによる音質カスタム調整
+              <p className="text-xs text-neutral-400 mt-0.5">
+                周波数帯域の微調整と低音ブースト
               </p>
             </div>
           </div>

@@ -41,6 +41,54 @@ export const api = {
     return res.json();
   },
 
+  async searchSpotify(query: string): Promise<{ tracks: Track[]; query: string; originalQuery?: string; matchedAlias?: string }> {
+    try {
+      const res = await fetch(`/api/music/spotify/search?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return { tracks: [], query };
+      return res.json();
+    } catch {
+      return { tracks: [], query };
+    }
+  },
+
+  async getSpotifyCurated(): Promise<{
+    playlists: {
+      id: string;
+      spotifyId: string;
+      title: string;
+      tagline: string;
+      category: string;
+      thumbnail: string;
+      trackCount: number;
+    }[];
+  }> {
+    try {
+      const res = await fetch('/api/music/spotify/curated');
+      if (!res.ok) return { playlists: [] };
+      return res.json();
+    } catch {
+      return { playlists: [] };
+    }
+  },
+
+  async getSpotifyCuratedPlaylist(id: string): Promise<{
+    id: string;
+    spotifyId: string;
+    title: string;
+    tagline: string;
+    thumbnail: string;
+    tracks: Track[];
+    totalTracks: number;
+  } | null> {
+    try {
+      const res = await fetch(`/api/music/spotify/curated/${id}`);
+      if (!res.ok) return null;
+      return res.json();
+    } catch {
+      return null;
+    }
+  },
+
   async getLyrics(
     videoId: string,
     title?: string,

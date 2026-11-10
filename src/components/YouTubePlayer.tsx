@@ -66,6 +66,7 @@ export const YouTubePlayer: React.FC = () => {
     onPlayerTimeUpdate,
     onPlayerStateChange,
     onPlayerTrackEnded,
+    onPlayerError,
   } = usePlayer();
 
   const playerRef = useRef<any>(null);
@@ -245,6 +246,10 @@ export const YouTubePlayer: React.FC = () => {
               title: currentTrack?.title,
               error: errorMsg,
             });
+            // Trigger automatic fallback bypass for embedding restrictions
+            if (typeof onPlayerError === 'function') {
+              onPlayerError(event.data, errorMsg);
+            }
           },
         },
       });

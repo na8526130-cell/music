@@ -32,6 +32,7 @@ export const SearchView: React.FC = () => {
     openAddToPlaylistModal,
   } = usePlayer();
 
+  const [provider, setProvider] = useState<'innertube' | 'spotify'>('innertube');
   const [filter, setFilter] = useState<SearchFilterType>('all');
   const [loading, setLoading] = useState(false);
   const [resultsAll, setResultsAll] = useState<{
@@ -43,8 +44,13 @@ export const SearchView: React.FC = () => {
   }>({ songs: [], artists: [], albums: [], playlists: [], videos: [] });
   const [resultsFiltered, setResultsFiltered] = useState<any[]>([]);
 
+  // Spotify search state
+  const [spotifyTracks, setSpotifyTracks] = useState<Track[]>([]);
+  const [matchedAlias, setMatchedAlias] = useState<string | null>(null);
+
+  // InnerTube search
   useEffect(() => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim() || provider !== 'innertube') return;
     let active = true;
     setLoading(true);
 
@@ -63,6 +69,7 @@ export const SearchView: React.FC = () => {
         } else {
           setResultsFiltered(res.results || []);
         }
+        setMatchedAlias(res.matchedAlias || null);
         setLoading(false);
       })
       .catch((err) => {
@@ -73,7 +80,31 @@ export const SearchView: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [searchQuery, filter]);
+  }, [searchQuery, filter, provider]);
+
+  // Spotify search
+  useEffect(() => {
+    if (!searchQuery.trim() || provider !== 'spotify') return;
+    let active = true;
+    setLoading(true);
+
+    api
+      .searchSpotify(searchQuery)
+      .then((res) => {
+        if (!active) return;
+        setSpotifyTracks(res.tracks || []);
+        setMatchedAlias(res.matchedAlias || null);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Spotify search error:', err);
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [searchQuery, provider]);
 
   const filterOptions: { id: SearchFilterType; label: string; icon: any }[] = [
     { id: 'all', label: 'すべて', icon: Search },
@@ -87,44 +118,207 @@ export const SearchView: React.FC = () => {
   return (
     <div className="space-y-6 pb-20">
       {/* Search Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800/80 pb-5">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-neutral-800/80 pb-5">
         <div>
-          <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">
-            InnerTube 検索結果
-          </span>
-          <h1 className="text-xl sm:text-2xl font-bold text-white mt-0.5">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">
+              {provider === 'spotify' ? 'Spotify' : 'YouTube Music'}
+            </span>
+            {matchedAlias && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                {matchedAlias}
+              </span>
+            )}
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">
             「{searchQuery}」の検索結果
           </h1>
         </div>
 
-        {/* Segmented Filter Control */}
-        <div className="flex items-center gap-1.5 p-1 bg-neutral-900 border border-neutral-800 rounded-xl overflow-x-auto scrollbar-none">
-          {filterOptions.map((opt) => {
-            const Icon = opt.icon;
-            const isActive = filter === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setFilter(opt.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors ${
-                  isActive
-                    ? 'bg-neutral-800 text-white shadow-sm'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-red-500' : ''}`} />
-                <span>{opt.label}</span>
-              </button>
-            );
-          })}
+        {/* Engine Provider Switcher + Filter Control */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Provider Toggle */}
+          <div className="flex items-center gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setProvider('innertube')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                provider === 'innertube'
+                  ? 'bg-neutral-800 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Search className="w-3.5 h-3.5 text-red-500" />
+              <span>YouTube Music</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setProvider('spotify')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                provider === 'spotify'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-emerald-400'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>Spotify 検索</span>
+            </button>
+          </div>
+
+          {/* Segmented Filter Control (Only for YouTube Music) */}
+          {provider === 'innertube' && (
+            <div className="flex items-center gap-1.5 p-1 bg-neutral-900 border border-neutral-800 rounded-xl overflow-x-auto scrollbar-none">
+              {filterOptions.map((opt) => {
+                const Icon = opt.icon;
+                const isActive = filter === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setFilter(opt.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors ${
+                      isActive
+                        ? 'bg-neutral-800 text-white shadow-sm'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-red-500' : ''}`} />
+                    <span>{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center gap-3 text-neutral-400">
-          <Loader2 className="w-8 h-8 animate-spin text-red-500" />
-          <p className="text-xs">InnerTube APIから検索結果を取得中...</p>
+          <Loader2 className={`w-8 h-8 animate-spin ${provider === 'spotify' ? 'text-emerald-500' : 'text-red-500'}`} />
+          <p className="text-xs">
+            検索中...
+          </p>
+        </div>
+      ) : provider === 'spotify' ? (
+        /* Spotify Mode Results */
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-4 p-4 bg-neutral-900/60 border border-emerald-500/25 rounded-2xl">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                <Music className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Spotify 楽曲</h3>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  {spotifyTracks.length}件の楽曲
+                </p>
+              </div>
+            </div>
+
+            {spotifyTracks.length > 0 && (
+              <button
+                type="button"
+                onClick={() => playTrack(spotifyTracks[0], spotifyTracks)}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 shrink-0 cursor-pointer active:scale-95 transition-all"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>すべて再生</span>
+              </button>
+            )}
+          </div>
+
+          {spotifyTracks.length === 0 ? (
+            <div className="py-20 text-center space-y-2 text-neutral-400">
+              <p className="text-sm font-medium text-neutral-300">Spotifyカタログに該当する楽曲が見つかりませんでした</p>
+              <p className="text-xs text-neutral-500">
+                キーワードを変更するか、「YouTube Music」タブでの検索をお試しください。
+              </p>
+            </div>
+          ) : (
+            <div className="bg-neutral-900/40 border border-neutral-800/80 rounded-2xl overflow-hidden divide-y divide-neutral-800/60 shadow-xl">
+              {spotifyTracks.map((track, idx) => {
+                const isCurrent = currentTrack?.id === track.id;
+                const isLiked = likedTrackIds.has(track.id);
+
+                return (
+                  <div
+                    key={track.id || idx}
+                    className={`flex items-center gap-3.5 px-4 py-3 hover:bg-neutral-800/50 group transition-colors ${
+                      isCurrent ? 'bg-emerald-950/20' : ''
+                    }`}
+                  >
+                    <span className="text-xs font-mono text-neutral-500 w-5 text-right shrink-0">
+                      {idx + 1}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => playTrack(track, spotifyTracks)}
+                      className="w-8 h-8 rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-400 hover:text-emerald-400 hover:bg-neutral-700 transition-colors shrink-0 cursor-pointer"
+                    >
+                      <Play className="w-4 h-4 fill-current ml-0.5" />
+                    </button>
+
+                    <div className="w-11 h-11 rounded-lg overflow-hidden bg-neutral-800 shrink-0 relative shadow">
+                      <SafeImage
+                        src={track.thumbnail}
+                        alt={track.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p
+                        onClick={() => playTrack(track, spotifyTracks)}
+                        className={`text-sm font-semibold truncate cursor-pointer hover:underline ${
+                          isCurrent ? 'text-emerald-400 font-bold' : 'text-white'
+                        }`}
+                      >
+                        {track.title}
+                      </p>
+                      <p className="text-xs text-neutral-400 truncate mt-0.5">
+                        {track.artist} • {track.album}
+                      </p>
+                    </div>
+
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/20 shrink-0 hidden sm:inline-block">
+                      Spotify
+                    </span>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleLikeTrack(track)}
+                        title="お気に入り"
+                        className="p-1.5 text-neutral-400 hover:text-red-500 transition-colors cursor-pointer"
+                      >
+                        <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openAddToPlaylistModal(track)}
+                        title="プレイリストに追加"
+                        className="p-1.5 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <ListPlus className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addToQueue(track)}
+                        title="キューに追加"
+                        className="p-1.5 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                      <span className="text-xs font-mono text-neutral-400 tabular-nums ml-2">
+                        {track.duration}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       ) : filter === 'all' ? (
         /* ALL Mode View */

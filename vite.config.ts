@@ -14,7 +14,7 @@ export default defineConfig(() => {
         devOptions: {
           enabled: true,
         },
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
           id: '/',
           name: 'Zero Music - 音楽ストリーミング & 同時試聴',
@@ -27,21 +27,30 @@ export default defineConfig(() => {
           scope: '/',
           icons: [
             {
-              src: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=192&h=192&fit=crop&crop=faces',
+              src: '/pwa-192x192.png',
               sizes: '192x192',
-              type: 'image/jpeg',
+              type: 'image/png',
               purpose: 'any',
             },
             {
-              src: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=512&h=512&fit=crop&crop=faces',
+              src: '/pwa-512x512.png',
               sizes: '512x512',
-              type: 'image/jpeg',
+              type: 'image/png',
               purpose: 'any',
+            },
+            {
+              src: '/pwa-maskable-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
             },
           ],
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          globIgnores: ['**/assets/aistudio/**'],
+          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+          navigateFallback: '/index.html',
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,

@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { Innertube, UniversalCache } from 'youtubei.js';
+import { kvCache } from './src/server/kvCache';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,8 +73,16 @@ async function getInnertube(): Promise<Innertube> {
 // Helpers to extract clean thumbnails
 function getBestThumbnail(thumbnails: any[]): string {
   if (!thumbnails || !thumbnails.length) return '';
-  const last = thumbnails[thumbnails.length - 1];
-  return last?.url || thumbnails[0]?.url || '';
+  let best = thumbnails[0];
+  let maxW = best?.width || 0;
+  for (const t of thumbnails) {
+    const w = t?.width || 0;
+    if (w > maxW) {
+      maxW = w;
+      best = t;
+    }
+  }
+  return best?.url || thumbnails[0]?.url || '';
 }
 
 // Format duration in seconds
@@ -91,12 +100,12 @@ function parseDurationToSeconds(durationText: string): number {
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = 3000;
 
   app.use(cors());
   app.use(express.json());
 
-  // Health check
+  // Health check with KV cache stats
   app.get('/api/health', async (_req, res) => {
     try {
       const yt = await getInnertube();
@@ -105,9 +114,88 @@ async function startServer() {
         innertubeReady: !!yt,
         version: 'youtubei.js v18.3.0',
         cachedLogsCount: apiLogs.length,
+        kvCache: kvCache.getStats(),
       });
     } catch (err: any) {
       res.status(500).json({ status: 'error', message: err.message });
+    }
+  });
+
+  // KV Cache Admin & Monitoring
+  app.get('/api/cache/stats', (_req, res) => {
+    res.json(kvCache.getStats());
+  });
+
+  app.post('/api/cache/clear', (_req, res) => {
+    kvCache.clear();
+    res.json({ success: true, message: 'KV persistent cache cleared successfully' });
+  });
+
+  // Dedicated Auto-Fallback for Error 101/150 (embedding restricted tracks)
+  app.get('/api/music/fallback', async (req, res) => {
+    const rawTitle = String(req.query.title || '').trim();
+    const rawArtist = String(req.query.artist || '').trim();
+    const excludeStr = String(req.query.exclude || '');
+    const excludeIds = new Set(excludeStr ? excludeStr.split(',').map((s) => s.trim()) : []);
+
+    if (!rawTitle) {
+      return res.status(400).json({ success: false, error: 'Track title is required' });
+    }
+
+    const cleanTitle = rawTitle.replace(/\(.*?\)|\[.*?\]|【.*?】|-.*$/g, '').trim();
+    const cacheKey = `fallback:${cleanTitle}:${rawArtist}`.toLowerCase();
+    const cachedCandidates = kvCache.get<any[]>(cacheKey);
+
+    if (cachedCandidates && Array.isArray(cachedCandidates)) {
+      const viable = cachedCandidates.find((item) => item.id && !excludeIds.has(item.id));
+      if (viable) {
+        return res.json({ success: true, track: viable, source: 'kv-cache' });
+      }
+    }
+
+    try {
+      const yt = await getInnertube();
+      const queries = [
+        `${cleanTitle} ${rawArtist} official audio`,
+        `${cleanTitle} ${rawArtist} topic`,
+        `${cleanTitle} ${rawArtist}`,
+        `${cleanTitle} official`,
+      ];
+
+      const foundList: any[] = [];
+      for (const q of queries) {
+        try {
+          const searchRes: any = await yt.music.search(q, { type: 'song' });
+          const contents = searchRes?.songs?.contents || [];
+          for (const s of contents) {
+            if (s.id && !excludeIds.has(s.id)) {
+              foundList.push({
+                id: s.id,
+                title: s.title?.toString?.() || rawTitle,
+                artist: s.artists?.[0]?.name || rawArtist,
+                thumbnail: getBestThumbnail(s.thumbnails || []),
+                duration: s.duration?.text || '',
+                durationSeconds: parseDurationToSeconds(s.duration?.text || ''),
+                isAlternate: true,
+              });
+              if (foundList.length >= 4) break;
+            }
+          }
+        } catch {
+          // continue to next query
+        }
+        if (foundList.length >= 4) break;
+      }
+
+      if (foundList.length > 0) {
+        kvCache.set(cacheKey, foundList, 48 * 3600); // 48-hour persistent cache
+        return res.json({ success: true, track: foundList[0], source: 'innertube' });
+      }
+
+      return res.status(404).json({ success: false, message: 'No alternative tracks found' });
+    } catch (err: any) {
+      console.error('[Fallback] Search error:', err);
+      return res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -255,10 +343,10 @@ async function startServer() {
   }
 
   async function getOriconChart(type: 'streaming' | 'digital' = 'streaming'): Promise<OriconItem[]> {
-    const cache = type === 'streaming' ? oriconStreamingCache : oriconDigitalCache;
-    const now = Date.now();
-    if (cache && now - cache.timestamp < ORICON_CACHE_TTL && cache.items.length > 0) {
-      return cache.items;
+    const cacheKey = `oricon:${type}`;
+    const cachedItems = kvCache.get<OriconItem[]>(cacheKey);
+    if (cachedItems && cachedItems.length > 0) {
+      return cachedItems;
     }
 
     const rawEntries = await fetchOriconRawChart(type);
@@ -309,11 +397,8 @@ async function startServer() {
       })
     );
 
-    const resultCache = { timestamp: now, items };
-    if (type === 'streaming') {
-      oriconStreamingCache = resultCache;
-    } else {
-      oriconDigitalCache = resultCache;
+    if (items.length > 0) {
+      kvCache.set(cacheKey, items, 6 * 3600); // 6 hours persistent cache
     }
 
     return items;
@@ -337,6 +422,11 @@ async function startServer() {
 
   // Explore: Home feed, Trending, New Releases, Moods & Genres, Oricon Rankings
   app.get('/api/music/explore', async (_req, res) => {
+    const cachedExplore = kvCache.get<any>('explore:home_feed');
+    if (cachedExplore) {
+      return res.json({ ...cachedExplore, fromCache: true });
+    }
+
     const startTime = Date.now();
     try {
       const yt = await getInnertube();
@@ -431,14 +521,17 @@ async function startServer() {
         getOriconChart('digital').catch(() => []),
       ]);
 
-      res.json({
+      const payload = {
         trending: trendingSongs,
         newReleases,
         moodsAndGenres: moodsAndGenres.slice(0, 16),
         musicVideos,
         oriconRanking,
         oriconDigital,
-      });
+      };
+
+      kvCache.set('explore:home_feed', payload, 2 * 3600);
+      res.json(payload);
     } catch (err: any) {
       const durationMs = Date.now() - startTime;
       recordLog({
@@ -475,13 +568,106 @@ async function startServer() {
     }
   });
 
-  // Search with filters (songs, videos, albums, artists, playlists)
+  // Japanese & English artist alias / fuzzy dictionary to absorb slang & abbreviations
+  const ARTIST_ALIASES: Record<string, string> = {
+    'ヒゲダン': 'Official髭男dism',
+    'ひげだん': 'Official髭男dism',
+    'higedan': 'Official髭男dism',
+    '髭男': 'Official髭男dism',
+    'ミスチル': 'Mr.Children',
+    'みすちる': 'Mr.Children',
+    'mrchildren': 'Mr.Children',
+    'ドリカム': 'DREAMS COME TRUE',
+    'どりかむ': 'DREAMS COME TRUE',
+    'ワンオク': 'ONE OK ROCK',
+    'わんおく': 'ONE OK ROCK',
+    'oor': 'ONE OK ROCK',
+    'バンプ': 'BUMP OF CHICKEN',
+    'ばんぷ': 'BUMP OF CHICKEN',
+    'boc': 'BUMP OF CHICKEN',
+    'マンウィズ': 'MAN WITH A MISSION',
+    'mwam': 'MAN WITH A MISSION',
+    'セカオワ': 'SEKAI NO OWARI',
+    'せかおわ': 'SEKAI NO OWARI',
+    'ウーバー': 'UVERworld',
+    'uver': 'UVERworld',
+    'ポルノ': 'ポルノグラフィティ',
+    'ラッド': 'RADWIMPS',
+    'らっど': 'RADWIMPS',
+    'ずとまよ': 'ずっと真夜中でいいのに。',
+    'ずっと真夜中': 'ずっと真夜中でいいのに。',
+    'キタニ': 'キタニタツヤ',
+    'サカナ': 'サカナクション',
+    'ブルエン': 'BLUE ENCOUNT',
+    'マイヘア': 'My Hair is Bad',
+    'スカパラ': '東京スカパラダイスオーケストラ',
+    'アジカン': 'ASIAN KUNG-FU GENERATION',
+    'スノ': 'Snow Man',
+    'すの': 'Snow Man',
+    'なにわ': 'なにわ男子',
+    'よあそび': 'YOASOBI',
+    '夜遊び': 'YOASOBI',
+    'きんぐぬー': 'King Gnu',
+    'キングヌー': 'King Gnu',
+    'あいみょん': 'あいみょん',
+    'マカえん': 'マカロニえんぴつ',
+  };
+
+  function expandSearchQuery(input: string): { effectiveQuery: string; originalQuery: string; matchedAlias?: string } {
+    const trimmed = input.trim();
+    const lower = trimmed.toLowerCase();
+
+    // 1. Direct whole-string match
+    if (ARTIST_ALIASES[lower]) {
+      return { effectiveQuery: ARTIST_ALIASES[lower], originalQuery: trimmed, matchedAlias: ARTIST_ALIASES[lower] };
+    }
+
+    // 2. Tokenized replacement (e.g. "ヒゲダン subtitle" -> "Official髭男dism subtitle")
+    const tokens = trimmed.split(/\s+/);
+    let replaced = false;
+    let matchedAlias: string | undefined;
+
+    const newTokens = tokens.map((token) => {
+      const tokenLower = token.toLowerCase();
+      if (ARTIST_ALIASES[tokenLower]) {
+        replaced = true;
+        matchedAlias = ARTIST_ALIASES[tokenLower];
+        return ARTIST_ALIASES[tokenLower];
+      }
+      for (const [alias, official] of Object.entries(ARTIST_ALIASES)) {
+        if (tokenLower === alias) {
+          replaced = true;
+          matchedAlias = official;
+          return official;
+        }
+      }
+      return token;
+    });
+
+    if (replaced) {
+      return { effectiveQuery: newTokens.join(' '), originalQuery: trimmed, matchedAlias };
+    }
+
+    return { effectiveQuery: trimmed, originalQuery: trimmed };
+  }
+
+  // Search with filters (songs, videos, albums, artists, playlists) & fuzzy normalization
   app.get('/api/music/search', async (req, res) => {
-    const query = String(req.query.q || '').trim();
+    const rawQuery = String(req.query.q || '').trim();
     const type = (req.query.type as string) || 'all';
-    if (!query) {
+    if (!rawQuery) {
       return res.json({ results: [], type });
     }
+
+    const { effectiveQuery, matchedAlias } = expandSearchQuery(rawQuery);
+    const query = effectiveQuery;
+
+    const cacheKey = `search:${type}:${query.toLowerCase()}`;
+    const cachedSearch = kvCache.get<any>(cacheKey);
+    if (cachedSearch) {
+      return res.json({ ...cachedSearch, fromCache: true, originalQuery: rawQuery, effectiveQuery, matchedAlias });
+    }
+
     const startTime = Date.now();
     try {
       const yt = await getInnertube();
@@ -552,13 +738,15 @@ async function startServer() {
           itemCount: songs.length + artists.length + albums.length + playlists.length + videos.length,
         });
 
-        return res.json({
+        const payload = {
           songs,
           artists,
           albums,
           playlists,
           videos,
-        });
+        };
+        kvCache.set(cacheKey, payload, 3600);
+        return res.json(payload);
       }
 
       // Filtered specific type
@@ -628,7 +816,9 @@ async function startServer() {
         itemCount: formattedItems.length,
       });
 
-      res.json({ results: formattedItems, type: searchType });
+      const payload = { results: formattedItems, type: searchType };
+      kvCache.set(cacheKey, payload, 3600);
+      res.json(payload);
     } catch (err: any) {
       recordLog({
         endpoint: 'music.search',
@@ -637,6 +827,260 @@ async function startServer() {
         status: 'error',
         error: err.message,
       });
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Spotify / Clean Official Catalog Search bridge to InnerTube
+  app.get('/api/music/spotify/search', async (req, res) => {
+    const rawQuery = String(req.query.q || '').trim();
+    if (!rawQuery) {
+      return res.json({ tracks: [], query: '' });
+    }
+
+    const { effectiveQuery, matchedAlias } = expandSearchQuery(rawQuery);
+    const query = effectiveQuery;
+    const cacheKey = `spotify_search:${query.toLowerCase()}`;
+    const cached = kvCache.get<any>(cacheKey);
+    if (cached) {
+      return res.json({ ...cached, fromCache: true });
+    }
+
+    const startTime = Date.now();
+    try {
+      // 1. Fetch clean official catalog via Japanese streaming index (ISRC, 600x600 artwork, clean titles)
+      const catRes = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=jp&entity=song&limit=12`
+      );
+      if (!catRes.ok) {
+        throw new Error('Catalog service temporarily unavailable');
+      }
+      const catData: any = await catRes.json();
+      const rawResults = catData.results || [];
+
+      if (rawResults.length === 0) {
+        return res.json({ tracks: [], query, matchedAlias });
+      }
+
+      // 2. Map top candidates to InnerTube IDs in parallel batches of 4
+      const yt = await getInnertube();
+      const BATCH_SIZE = 4;
+      const candidates = rawResults.slice(0, 10);
+      const resolvedTracks: any[] = [];
+
+      for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+        const chunk = candidates.slice(i, i + BATCH_SIZE);
+        const resolvedChunk = await Promise.all(
+          chunk.map(async (item: any, idx: number) => {
+            const cleanTitle = item.trackName;
+            const cleanArtist = item.artistName;
+            const searchQ = `${cleanTitle} ${cleanArtist}`.trim();
+            let ytId = '';
+            let durationText = '';
+            let durationSec = Math.round((item.trackTimeMillis || 0) / 1000);
+
+            try {
+              const sRes = await yt.music.search(searchQ, { type: 'song' });
+              const topHit = sRes.songs?.contents?.[0];
+              if (topHit?.id) {
+                ytId = topHit.id;
+                durationText = topHit.duration?.text || '';
+                if (topHit.duration?.text) {
+                  durationSec = parseDurationToSeconds(topHit.duration.text);
+                }
+              }
+            } catch (err: any) {
+              console.warn(`[Spotify Search Bridge] Error resolving ${searchQ}:`, err.message);
+            }
+
+            // High-res album art (replace 100x100 with 600x600)
+            const hiResArt = (item.artworkUrl100 || '').replace(/100x100bb\.jpg$/, '600x600bb.jpg');
+
+            return {
+              id: ytId || `spotify_${item.trackId}`,
+              title: item.trackName,
+              artist: item.artistName,
+              album: item.collectionName || 'Single',
+              duration: durationText || `${Math.floor(durationSec / 60)}:${(durationSec % 60).toString().padStart(2, '0')}`,
+              durationSeconds: durationSec,
+              thumbnail: hiResArt,
+              source: 'Spotify / Official Catalog',
+              releaseDate: item.releaseDate ? item.releaseDate.split('T')[0] : '',
+              isrc: item.isrc || '',
+              previewUrl: item.previewUrl || '',
+              index: i + idx + 1,
+            };
+          })
+        );
+        resolvedTracks.push(...resolvedChunk);
+      }
+
+      // Filter out items that couldn't be resolved or fallback to first search hit
+      const playableTracks = resolvedTracks.filter((t) => t.id && !t.id.startsWith('spotify_'));
+      const finalTracks = playableTracks.length > 0 ? playableTracks : resolvedTracks;
+
+      const payload = {
+        tracks: finalTracks,
+        query,
+        originalQuery: rawQuery,
+        matchedAlias,
+        totalCount: finalTracks.length,
+      };
+
+      kvCache.set(cacheKey, payload, 3600);
+
+      recordLog({
+        endpoint: 'spotify.search',
+        params: { query },
+        durationMs: Date.now() - startTime,
+        status: 'success',
+        itemCount: finalTracks.length,
+      });
+
+      res.json(payload);
+    } catch (err: any) {
+      console.warn('[Spotify Search] error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Spotify Curated Playlists & Charts metadata
+  const SPOTIFY_CURATED_PLAYLISTS = [
+    {
+      id: 'tokyo-super-hits',
+      spotifyId: '37i9dQZF1DXdbXrPNafg9d',
+      title: 'Tokyo Super Hits',
+      tagline: '日本の今最も聴かれている最新ストリーミングヒット',
+      category: 'japan',
+      thumbnail: 'https://i.scdn.co/image/ab67706f000000029b9f5f0b835e5d36b801a6b0',
+      trackCount: 99,
+    },
+    {
+      id: 'todays-top-hits',
+      spotifyId: '37i9dQZF1DXcBWIGoYBM5M',
+      title: "Today's Top Hits",
+      tagline: '世界で最も再生されているグローバルトップチャート',
+      category: 'global',
+      thumbnail: 'https://i.scdn.co/image/ab67706f00000002e06fabee7abffa117bed662f',
+      trackCount: 50,
+    },
+    {
+      id: 'chill-hits',
+      spotifyId: '37i9dQZF1DX4WYpdgoIcn6',
+      title: 'Chill Hits',
+      tagline: '心地よいアコースティック＆リラックスサウンド',
+      category: 'mood',
+      thumbnail: 'https://i.scdn.co/image/ab67706f00000002b89694e9cc6fa029f60cb05a',
+      trackCount: 100,
+    },
+    {
+      id: 'new-music-friday',
+      spotifyId: '37i9dQZF1DX4JAvHpjipBk',
+      title: 'New Music Friday',
+      tagline: '今週リリースされた世界の注目最新トラック',
+      category: 'new',
+      thumbnail: 'https://i.scdn.co/image/ab67706f00000002b4fa3e46c986161962bf14f7',
+      trackCount: 100,
+    },
+    {
+      id: 'peaceful-piano',
+      spotifyId: '37i9dQZF1DX4sWSpwq3LiO',
+      title: 'Peaceful Piano',
+      tagline: '作業や睡眠を邪魔しない穏やかなピアノソロ',
+      category: 'mood',
+      thumbnail: 'https://i.scdn.co/image/ab67706f00000002d721e90ef811df6b6cb51b43',
+      trackCount: 100,
+    },
+    {
+      id: 'rapcaviar',
+      spotifyId: '37i9dQZF1DX0XUsuxWHRQd',
+      title: 'RapCaviar',
+      tagline: 'ヒップホップ・ストリートシーンの最前線',
+      category: 'genre',
+      thumbnail: 'https://i.scdn.co/image/ab67706f00000002d2a417e8838d77d704ec326d',
+      trackCount: 50,
+    },
+  ];
+
+  app.get('/api/music/spotify/curated', (_req, res) => {
+    res.json({ playlists: SPOTIFY_CURATED_PLAYLISTS });
+  });
+
+  app.get('/api/music/spotify/curated/:id', async (req, res) => {
+    const curatedId = req.params.id;
+    const item = SPOTIFY_CURATED_PLAYLISTS.find(
+      (p) => p.id === curatedId || p.spotifyId === curatedId
+    );
+    if (!item) {
+      return res.status(404).json({ error: 'Playlist not found' });
+    }
+
+    const cacheKey = `spotify_curated_${item.spotifyId}`;
+    const cached = kvCache.get<any>(cacheKey);
+    if (cached) {
+      return res.json({ ...cached, fromCache: true });
+    }
+
+    try {
+      const spotifyUrl = `https://open.spotify.com/playlist/${item.spotifyId}`;
+      const spotifyData = await parseSpotifyUrl(spotifyUrl);
+      if (!spotifyData || !spotifyData.rawTracks?.length) {
+        return res.status(502).json({ error: 'Failed to fetch tracks from Spotify' });
+      }
+
+      const yt = await getInnertube();
+      const BATCH_SIZE = 5;
+      const rawTracks = spotifyData.rawTracks.slice(0, 30);
+      const tracks: any[] = [];
+
+      for (let i = 0; i < rawTracks.length; i += BATCH_SIZE) {
+        const chunk = rawTracks.slice(i, i + BATCH_SIZE);
+        const chunkResolved = await Promise.all(
+          chunk.map(async (rawItem: any, idx: number) => {
+            const cleanArtist = rawItem.artist.split(/[,&×/]|feat\.?/i)[0].trim();
+            const searchQ = `${rawItem.title} ${cleanArtist}`.trim();
+            try {
+              const sRes = await yt.music.search(searchQ, { type: 'song' });
+              const topHit = sRes.songs?.contents?.[0];
+              if (topHit?.id) {
+                return {
+                  index: i + idx + 1,
+                  id: topHit.id,
+                  title: topHit.title?.toString?.() || rawItem.title,
+                  artist: topHit.artists?.[0]?.name || rawItem.artist,
+                  album: topHit.album?.name || item.title,
+                  duration: topHit.duration?.text || '',
+                  durationSeconds:
+                    parseDurationToSeconds(topHit.duration?.text || '') ||
+                    Math.round((rawItem.durationMs || 0) / 1000),
+                  thumbnail: getBestThumbnail(topHit.thumbnails || [item.thumbnail]),
+                  source: 'Spotify Curated',
+                };
+              }
+            } catch (err: any) {
+              console.warn(`[Spotify Curated] Error resolving "${searchQ}":`, err.message);
+            }
+            return null;
+          })
+        );
+        tracks.push(...chunkResolved.filter(Boolean));
+      }
+
+      const payload = {
+        id: item.id,
+        spotifyId: item.spotifyId,
+        title: item.title,
+        tagline: item.tagline,
+        thumbnail: item.thumbnail,
+        tracks,
+        totalTracks: tracks.length,
+      };
+
+      // Cache for 6 hours
+      kvCache.set(cacheKey, payload, 21600);
+      res.json(payload);
+    } catch (err: any) {
+      console.warn('[Spotify Curated] error:', err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -1112,11 +1556,11 @@ async function startServer() {
     const cleanArtist = rawArtist.split(/[,&×/]|feat\.?/i)[0].trim();
     const cleanTitle = cleanTrackTitle(rawTitle, cleanArtist);
 
-    // Check memory cache
-    const cacheKey = `${videoId}_${cleanTitle}_${cleanArtist}`.toLowerCase();
-    const cached = lyricsMemoryCache.get(cacheKey);
-    if (cached && cached.expiry > Date.now()) {
-      return res.json(cached.data);
+    // Check persistent KV cache
+    const cacheKey = `lyrics:${videoId}_${cleanTitle}_${cleanArtist}`.toLowerCase();
+    const cached = kvCache.get<any>(cacheKey);
+    if (cached) {
+      return res.json(cached);
     }
 
     let syncedLyrics: SyncedLine[] = [];
@@ -1310,11 +1754,8 @@ async function startServer() {
       globalOffset,
     };
 
-    // Cache for 12 hours
-    lyricsMemoryCache.set(cacheKey, {
-      data: responsePayload,
-      expiry: Date.now() + 12 * 60 * 60 * 1000,
-    });
+    // Cache for 24 hours in persistent KV store
+    kvCache.set(cacheKey, responsePayload, 24 * 3600);
 
     res.json(responsePayload);
   });
@@ -1451,47 +1892,156 @@ async function startServer() {
 
   // Album details with tracklist
   app.get('/api/music/album/:id', async (req, res) => {
-    const albumId = req.params.id;
+    const rawAlbumId = req.params.id;
     const startTime = Date.now();
+
+    // Check kvCache first
+    const cacheKey = `album_detail_${rawAlbumId}`;
+    const cached = kvCache.get<any>(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     try {
       const yt = await getInnertube();
-      const album = await yt.music.getAlbum(albumId);
+      let actualAlbumId = rawAlbumId;
+
+      // Handle common aliases
+      const normalized = rawAlbumId.toLowerCase().trim();
+      if (normalized === 'editorial' || normalized.includes('editorial')) {
+        actualAlbumId = 'MPREb_QCAGO0Lbeum';
+      } else if (
+        normalized === 'love-peace' ||
+        normalized === 'love_peace' ||
+        normalized === 'love to peace' ||
+        normalized.includes('ラブとピースは君の中')
+      ) {
+        actualAlbumId = 'MPREb_lvUlrlxInIt';
+      } else if (normalized === 'traveler' || normalized.includes('traveler')) {
+        actualAlbumId = 'MPREb_9XoC3Flm4Rv';
+      } else if (
+        normalized.includes('バラード') ||
+        normalized.includes('ballad') ||
+        normalized === 'ballad'
+      ) {
+        actualAlbumId = 'VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr';
+      }
+
+      // If it looks like a playlist
+      if (actualAlbumId.startsWith('VL') || actualAlbumId.startsWith('PL')) {
+        const playlist = await yt.music.getPlaylist(actualAlbumId);
+        const pHeader = playlist.header as any;
+        const pThumbnails = pHeader?.thumbnails || pHeader?.thumbnail?.contents || [];
+        const headerThumbnail = getBestThumbnail(pThumbnails);
+
+        const header = {
+          id: actualAlbumId,
+          title: pHeader?.title?.toString?.() || pHeader?.title?.text || 'プレイリスト',
+          artist: pHeader?.author?.name || pHeader?.author?.text || 'Various Artists',
+          artistId: pHeader?.author?.id,
+          year: '',
+          thumbnail: headerThumbnail,
+          trackCount: (playlist.items || (playlist as any).contents || []).length,
+        };
+
+        const tracks = (playlist.items || (playlist as any).contents || []).map(
+          (item: any, idx: number) => ({
+            index: idx + 1,
+            id: item.id || item.video_id,
+            title: item.title?.toString?.() || item.title?.text || '',
+            artist: item.artists?.[0]?.name || header.artist,
+            artistId: item.artists?.[0]?.id || header.artistId,
+            album: header.title,
+            albumId: actualAlbumId,
+            duration: item.duration?.text || '',
+            durationSeconds: parseDurationToSeconds(item.duration?.text || ''),
+            thumbnail: getBestThumbnail(item.thumbnails || []) || headerThumbnail,
+          })
+        );
+
+        const result = { header, tracks };
+        kvCache.set(cacheKey, result, 24 * 3600);
+        return res.json(result);
+      }
+
+      // If not a known browseId pattern, search by title
+      if (!actualAlbumId.startsWith('MPREb_') && !actualAlbumId.startsWith('OLAK5uy_')) {
+        try {
+          const search = await yt.music.search(rawAlbumId, { type: 'album' });
+          const firstAlbum =
+            (search as any)?.albums?.contents?.[0] ||
+            (search as any)?.contents?.[0]?.contents?.[0];
+          if (firstAlbum?.id) {
+            actualAlbumId = firstAlbum.id;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      const album = await yt.music.getAlbum(actualAlbumId);
+
+      const rawHeader = album.header as any;
+      const rawThumbnails =
+        rawHeader?.thumbnails ||
+        rawHeader?.thumbnail?.contents ||
+        (rawHeader?.thumbnail ? [rawHeader.thumbnail] : []);
+      const headerThumbnail = getBestThumbnail(rawThumbnails);
+
+      const headerArtist =
+        rawHeader?.strapline_text_one?.text ||
+        rawHeader?.artists?.[0]?.name ||
+        rawHeader?.author?.name ||
+        rawHeader?.subtitle?.runs?.[0]?.text ||
+        '';
+
+      const headerArtistId =
+        rawHeader?.strapline_text_one?.endpoint?.payload?.browseId ||
+        rawHeader?.artists?.[0]?.id ||
+        rawHeader?.author?.id;
+
+      const yearRun = rawHeader?.subtitle?.runs?.find((r: any) => /^\d{4}$/.test(r.text));
+      const headerYear = yearRun?.text || rawHeader?.year || '';
 
       const header = {
-        title: (album.header as any)?.title?.toString?.() || 'Album',
-        artist: (album.header as any)?.artists?.[0]?.name || (album.header as any)?.author?.name || '',
-        artistId: (album.header as any)?.artists?.[0]?.id || (album.header as any)?.author?.id,
-        year: (album.header as any)?.year || '',
-        thumbnail: getBestThumbnail((album.header as any)?.thumbnails || []),
+        id: actualAlbumId,
+        title: rawHeader?.title?.toString?.() || rawHeader?.title?.text || 'アルバム',
+        artist: headerArtist,
+        artistId: headerArtistId,
+        year: headerYear,
+        thumbnail: headerThumbnail,
         trackCount: (album.contents || []).length,
       };
 
       const tracks = (album.contents || []).map((item: any, idx: number) => ({
         index: idx + 1,
         id: item.id || item.video_id,
-        title: item.title?.toString?.() || '',
+        title: item.title?.toString?.() || item.title?.text || '',
         artist: item.artists?.[0]?.name || header.artist,
         artistId: item.artists?.[0]?.id || header.artistId,
         album: header.title,
-        albumId,
+        albumId: actualAlbumId,
         duration: item.duration?.text || '',
         durationSeconds: parseDurationToSeconds(item.duration?.text || ''),
-        thumbnail: header.thumbnail,
+        thumbnail: getBestThumbnail(item.thumbnails || []) || headerThumbnail,
       }));
+
+      const result = { header, tracks };
+      kvCache.set(cacheKey, result, 24 * 3600);
 
       recordLog({
         endpoint: 'music.getAlbum',
-        params: { albumId },
+        params: { rawAlbumId, actualAlbumId },
         durationMs: Date.now() - startTime,
         status: 'success',
         itemCount: tracks.length,
       });
 
-      res.json({ header, tracks });
+      res.json(result);
     } catch (err: any) {
       recordLog({
         endpoint: 'music.getAlbum',
-        params: { albumId },
+        params: { rawAlbumId },
         durationMs: Date.now() - startTime,
         status: 'error',
         error: err.message,

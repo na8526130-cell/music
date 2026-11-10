@@ -101,7 +101,7 @@ export const QueueDrawer: React.FC = () => {
           </span>
           {queue.length <= 1 ? (
             <div className="text-center py-6 text-xs text-neutral-500 px-4">
-              キューに待機中の楽曲はありません。下のInnerTube関連おすすめから追加できます。
+              キューに待機中の楽曲はありません。
             </div>
           ) : (
             <div className="space-y-1">
@@ -161,7 +161,7 @@ export const QueueDrawer: React.FC = () => {
           <div className="flex items-center justify-between mb-2 px-2">
             <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-red-500" />
-              <span>InnerTube 関連おすすめ曲</span>
+              <span>おすすめ曲</span>
             </span>
           </div>
 

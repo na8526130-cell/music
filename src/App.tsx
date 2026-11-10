@@ -29,9 +29,16 @@ import { StoryCardGeneratorModal } from './components/StoryCardGeneratorModal';
 import { IntroQuizModal } from './components/IntroQuizModal';
 import { MusicMatchModal } from './components/MusicMatchModal';
 import { CollabPlaylistModal } from './components/CollabPlaylistModal';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
+import { OfflineIndicator } from './components/OfflineIndicator';
+import { FullScreenPlayerModal } from './components/FullScreenPlayerModal';
+import { BottomTabBar } from './components/BottomTabBar';
+import { SleepTimerModal } from './components/SleepTimerModal';
+import { ListeningWrappedModal } from './components/ListeningWrappedModal';
 
 const MainLayout: React.FC = () => {
   const {
+    toastNotification,
     activeView,
     playerMode,
     setPlayerMode,
@@ -65,6 +72,26 @@ const MainLayout: React.FC = () => {
       {/* Real-time Floating Danmaku Screen Layer */}
       <DanmakuOverlay />
 
+      {/* Toast Notification Banner (Auto-fallback alerts & system messages) */}
+      {toastNotification && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-lg w-[92%] sm:w-auto animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-none">
+          <div
+            className={`px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl border flex items-center gap-2.5 text-xs sm:text-sm font-semibold pointer-events-auto ${
+              toastNotification.type === 'warning'
+                ? 'bg-amber-950/95 border-amber-600/60 text-amber-200 shadow-amber-950/60 ring-1 ring-amber-500/30'
+                : toastNotification.type === 'success'
+                ? 'bg-emerald-950/95 border-emerald-600/60 text-emerald-200 shadow-emerald-950/60 ring-1 ring-emerald-500/30'
+                : 'bg-neutral-900/95 border-neutral-700 text-white shadow-black/80 ring-1 ring-white/10'
+            }`}
+          >
+            <span>{toastNotification.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Offline Status Connectivity Banner */}
+      <OfflineIndicator />
+
       {/* Top Navbar */}
       <TopNavbar />
 
@@ -84,6 +111,12 @@ const MainLayout: React.FC = () => {
 
       {/* Persistent Bottom Player Bar */}
       <PlayerBar />
+
+      {/* Spotify Bottom Navigation Bar */}
+      <BottomTabBar />
+
+      {/* Spotify Full-Screen Now Playing Modal */}
+      <FullScreenPlayerModal />
 
       {/* Floating Mini Player (follows across all screens & views) */}
       <MiniFloatingPlayer />
@@ -136,6 +169,13 @@ const MainLayout: React.FC = () => {
         isOpen={collabModalOpen}
         onClose={() => setCollabModalOpen(false)}
       />
+
+      {/* Spotify Sleep Timer & Wrapped Modals */}
+      <SleepTimerModal />
+      <ListeningWrappedModal />
+
+      {/* In-App PWA Install Promotion Banner */}
+      <PWAInstallBanner />
     </div>
   );
 };

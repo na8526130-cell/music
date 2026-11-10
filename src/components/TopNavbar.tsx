@@ -20,7 +20,11 @@ import {
   Music,
   Tv,
   Crown,
+  Smartphone,
+  BarChart2,
 } from 'lucide-react';
+import { usePWAInstall } from '../hooks/usePWAInstall';
+import { IOSInstallGuideModal } from './PWAInstallBanner';
 
 export const TopNavbar: React.FC = () => {
   const {
@@ -50,12 +54,24 @@ export const TopNavbar: React.FC = () => {
     currentTrack,
     queue,
     playTrack,
+    setWrappedModalOpen,
   } = usePlayer();
 
   const [localInput, setLocalInput] = useState(searchQuery);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSuggestOpen, setIsSuggestOpen] = useState(false);
   const searchBoxRef = useRef<HTMLDivElement>(null);
+
+  const { isInstalled, isInstallable, install } = usePWAInstall();
+  const [showPwaModal, setShowPwaModal] = useState<boolean>(false);
+
+  const handlePwaClick = async () => {
+    if (isInstallable) {
+      await install();
+    } else {
+      setShowPwaModal(true);
+    }
+  };
 
   // Sync when search query changes externally
   useEffect(() => {
@@ -96,6 +112,20 @@ export const TopNavbar: React.FC = () => {
     e.preventDefault();
     const query = localInput.trim();
     if (!query) return;
+
+    // Auto-detect Spotify & YouTube playlist/track URLs
+    if (
+      query.includes('spotify.com') ||
+      query.includes('spotify.link') ||
+      query.startsWith('spotify:') ||
+      (query.includes('youtube.com') && query.includes('list=')) ||
+      (query.includes('youtu.be') && query.includes('list='))
+    ) {
+      setImportModalOpen(true);
+      setIsSuggestOpen(false);
+      return;
+    }
+
     setSearchQuery(query);
     api.recordSearchTelemetry(query);
     setIsSuggestOpen(false);
@@ -209,10 +239,10 @@ export const TopNavbar: React.FC = () => {
               el?.scrollIntoView({ behavior: 'smooth' });
             }, 80);
           }}
-          className="text-amber-400/90 hover:text-amber-300 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1 cursor-pointer font-medium"
+          className="text-red-400 hover:text-red-300 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1 cursor-pointer font-medium"
           title="オリコン週間ランキングへスクロール"
         >
-          <Crown className="w-3.5 h-3.5 text-amber-400" />
+          <Crown className="w-3.5 h-3.5 text-red-500" />
           <span>オリコン (Oricon)</span>
         </button>
         <button
@@ -244,14 +274,6 @@ export const TopNavbar: React.FC = () => {
           className="text-neutral-400 hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
         >
           DMチャット
-        </button>
-        <button
-          type="button"
-          onClick={() => setInspectorOpen(true)}
-          className="text-neutral-400 hover:text-red-400 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span>InnerTube API</span>
         </button>
       </nav>
 
@@ -289,7 +311,7 @@ export const TopNavbar: React.FC = () => {
           {isSuggestOpen && suggestions.length > 0 && (
             <div className="absolute left-0 right-0 mt-1.5 bg-[#121214] border border-neutral-800 rounded-lg shadow-2xl py-1 z-50 overflow-hidden">
               <div className="px-3 py-1 text-[11px] font-medium text-neutral-500 uppercase tracking-wider">
-                InnerTube サジェスト
+                検索候補
               </div>
               {suggestions.map((item, idx) => (
                 <button
@@ -389,6 +411,30 @@ export const TopNavbar: React.FC = () => {
           )}
         </button>
 
+        {/* PWA App Install Quick Action */}
+        {!isInstalled && (
+          <button
+            type="button"
+            onClick={handlePwaClick}
+            title="ホーム画面に追加してアプリ化（バックグラウンド再生安定化）"
+            className="hidden sm:flex px-2.5 sm:px-3 py-2 bg-gradient-to-r from-red-600/20 to-rose-600/20 hover:from-red-600/30 hover:to-rose-600/30 text-rose-300 hover:text-white border border-rose-500/40 rounded-lg text-xs font-bold items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-sm shadow-rose-950/40"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+            <span>アプリ化</span>
+          </button>
+        )}
+
+        {/* Spotify Wrapped & Listening Analytics Quick Action */}
+        <button
+          type="button"
+          onClick={() => setWrappedModalOpen(true)}
+          title="Spotify Wrapped & リスニング分析（あなたの再生履歴と年間統計）"
+          className="px-2.5 sm:px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-200 hover:text-white border border-red-500/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-sm shadow-red-950/40"
+        >
+          <BarChart2 className="w-3.5 h-3.5 text-red-400" />
+          <span className="hidden sm:inline">Wrapped</span>
+        </button>
+
         {/* Account Status Button */}
         <button
           type="button"
@@ -444,22 +490,11 @@ export const TopNavbar: React.FC = () => {
         <button
           type="button"
           onClick={() => setEqModalOpen(true)}
-          title="本格10バンドイコライザー & 重低音ブースト"
+          title="イコライザー & 重低音ブースト"
           className="px-2.5 sm:px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-amber-400 border border-neutral-800 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
         >
           <Sliders className="w-3.5 h-3.5 text-amber-500" />
-          <span className="hidden lg:inline">EQ調整</span>
-        </button>
-
-        {/* InnerTube Inspector Button */}
-        <button
-          type="button"
-          onClick={() => setInspectorOpen(true)}
-          title="InnerTube API Inspector"
-          className="px-2.5 sm:px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-800 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-        >
-          <Terminal className="w-3.5 h-3.5 text-red-500" />
-          <span className="hidden lg:inline">API 診断</span>
+          <span className="hidden lg:inline">EQ</span>
         </button>
 
         {/* Terms of Service Button */}
@@ -473,6 +508,10 @@ export const TopNavbar: React.FC = () => {
           <span className="hidden xl:inline">利用規約</span>
         </button>
       </div>
+
+      {showPwaModal && (
+        <IOSInstallGuideModal onClose={() => setShowPwaModal(false)} />
+      )}
     </header>
   );
 };

@@ -3,6 +3,7 @@ import { Track, ViewType, PlayerMode, VideoLayout, RepeatMode, LyricsData } from
 import { api } from '../services/api';
 import { equalizer } from '../services/equalizer';
 import { socialSocket } from '../services/socialSocket';
+import { getPlayableOfflineTrack } from '../services/offlineStorage';
 
 interface UserPlaylist {
   id: string;
@@ -28,6 +29,36 @@ interface PlayerContextType {
   isShuffle: boolean;
   lyricsOpen: boolean;
   queueOpen: boolean;
+  fullScreenPlayerOpen: boolean;
+  setFullScreenPlayerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+
+  // Spotify Features: Sleep Timer, Playback Speed, Smart Shuffle, Audio Quality & Wrapped
+  sleepTimerRemaining: number | null;
+  sleepTimerMode: number | 'end_of_track' | null;
+  setSleepTimer: (minutes: number | 'end_of_track') => void;
+  clearSleepTimer: () => void;
+  sleepTimerModalOpen: boolean;
+  setSleepTimerModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+
+  playbackRate: number;
+  setPlaybackRate: (rate: number) => void;
+
+  shuffleMode: 'off' | 'on' | 'smart';
+  cycleShuffleMode: () => void;
+
+  audioQuality: 'auto' | 'low' | 'normal' | 'high';
+  setAudioQuality: (q: 'auto' | 'low' | 'normal' | 'high') => void;
+
+  wrappedModalOpen: boolean;
+  setWrappedModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  listeningStats: {
+    totalMinutes: number;
+    totalMinutesListened: number;
+    totalPlayedTracks: number;
+    topTracks: { track: Track; count: number; seconds: number }[];
+    topArtists: { artist: string; count: number }[];
+    timeOfDay: string;
+  };
   inspectorOpen: boolean;
   activeView: ViewType;
   selectedEntityId: string | null;
@@ -158,6 +189,12 @@ interface PlayerContextType {
   collabModalOpen: boolean;
   setCollabModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
+  // Toast notifications & Playback error auto-fallback
+  toastNotification: { message: string; type: 'info' | 'success' | 'warning' } | null;
+  setToastNotification: React.Dispatch<React.SetStateAction<{ message: string; type: 'info' | 'success' | 'warning' } | null>>;
+  showToast: (message: string, type?: 'info' | 'success' | 'warning', duration?: number) => void;
+  onPlayerError: (errorCode: number, errorMsg?: string) => Promise<void>;
+
   // Internal bridge with YouTube player
   userIntendedPlayingRef: React.MutableRefObject<boolean>;
   onPlayerTimeUpdate: (current: number, total: number) => void;
@@ -200,6 +237,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
   const [lyricsOpen, setLyricsOpen] = useState<boolean>(false);
   const [queueOpen, setQueueOpen] = useState<boolean>(false);
+  const [fullScreenPlayerOpen, setFullScreenPlayerOpen] = useState<boolean>(false);
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(false);
   const [bgGuideOpen, setBgGuideOpen] = useState<boolean>(false);
 
@@ -209,6 +247,32 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [endlessRadioActive, setEndlessRadioActive] = useState<boolean>(true);
   // Playlist Import Modal open
   const [importModalOpen, setImportModalOpen] = useState<boolean>(false);
+
+  // Spotify Features States
+  const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
+  const [sleepTimerMode, setSleepTimerMode] = useState<number | 'end_of_track' | null>(null);
+  const [sleepTimerModalOpen, setSleepTimerModalOpen] = useState<boolean>(false);
+
+  const [playbackRate, setPlaybackRateState] = useState<number>(1.0);
+  const [shuffleMode, setShuffleMode] = useState<'off' | 'on' | 'smart'>('off');
+
+  const [audioQuality, setAudioQualityState] = useState<'auto' | 'low' | 'normal' | 'high'>(() => {
+    try {
+      return (localStorage.getItem('yt_audio_quality') as any) || 'high';
+    } catch {
+      return 'high';
+    }
+  });
+
+  const [wrappedModalOpen, setWrappedModalOpen] = useState<boolean>(false);
+  const [historyStats, setHistoryStats] = useState<Record<string, { track: Track; count: number; seconds: number }>>(() => {
+    try {
+      const saved = localStorage.getItem('yt_listening_history_v1');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   const targetVolumeRef = useRef<number>(80);
   const isTransitioningEarlyRef = useRef<boolean>(false);
@@ -800,21 +864,31 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const playTrack = useCallback(
-    (track: Track, customQueue?: Track[]) => {
+    async (track: Track, customQueue?: Track[]) => {
       userIntendedPlayingRef.current = true;
       isTransitioningEarlyRef.current = false;
-      setCurrentTrack(track);
+
+      let resolvedTrack = track;
+      if (track.isLocal) {
+        resolvedTrack = await getPlayableOfflineTrack(track);
+      }
+
+      setCurrentTrack(resolvedTrack);
       setProgress(0);
       setIsPlaying(true);
 
-      // Record genuine telemetry
-      api.recordPlaybackTelemetry({
-        videoId: track.id,
-        title: track.title,
-        artist: track.artist,
-        thumbnail: track.thumbnail,
-        durationSeconds: track.durationSeconds,
-      });
+      // Record genuine telemetry (skip when offline or for local tracks)
+      if (!resolvedTrack.isLocal && navigator.onLine) {
+        try {
+          api.recordPlaybackTelemetry({
+            videoId: resolvedTrack.id,
+            title: resolvedTrack.title,
+            artist: resolvedTrack.artist,
+            thumbnail: resolvedTrack.thumbnail,
+            durationSeconds: resolvedTrack.durationSeconds,
+          }).catch(() => {});
+        } catch {}
+      }
 
       // Reset volume to target volume when new track begins
       const win = window as any;
@@ -822,43 +896,61 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         win.__ytPlayer.setVolume(targetVolumeRef.current);
       }
 
-      // Update history
+      // Update history & stats
       setRecentTracks((prev) => {
-        const filtered = prev.filter((t) => t.id !== track.id);
-        return [track, ...filtered];
+        const filtered = prev.filter((t) => t.id !== resolvedTrack.id);
+        return [resolvedTrack, ...filtered];
+      });
+
+      setHistoryStats((prev) => {
+        const existing = prev[resolvedTrack.id] || { track: resolvedTrack, count: 0, seconds: 0 };
+        const updated = {
+          ...prev,
+          [resolvedTrack.id]: {
+            track: resolvedTrack,
+            count: existing.count + 1,
+            seconds: existing.seconds + (resolvedTrack.durationSeconds || 180),
+          },
+        };
+        try {
+          localStorage.setItem('yt_listening_history_v1', JSON.stringify(updated));
+        } catch {}
+        return updated;
       });
 
       if (customQueue && customQueue.length > 0) {
         setQueue(customQueue);
-        const idx = customQueue.findIndex((t) => t.id === track.id);
+        const idx = customQueue.findIndex((t) => t.id === resolvedTrack.id);
         setQueueIndex(idx >= 0 ? idx : 0);
       } else {
         setQueue((prevQueue) => {
-          const existingIdx = prevQueue.findIndex((t) => t.id === track.id);
+          const existingIdx = prevQueue.findIndex((t) => t.id === resolvedTrack.id);
           if (existingIdx >= 0) {
             setQueueIndex(existingIdx);
             return prevQueue;
           } else {
-            const newQueue = [...prevQueue, track];
+            const newQueue = [...prevQueue, resolvedTrack];
             setQueueIndex(newQueue.length - 1);
             return newQueue;
           }
         });
       }
 
-      // Auto-fetch related songs in background if queue is short
-      api.getRelated(track.id).then((related) => {
-        if (related && related.length > 0) {
-          setQueue((curr) => {
-            if (curr.length <= 3) {
-              const existingIds = new Set(curr.map((t) => t.id));
-              const fresh = related.filter((r) => !existingIds.has(r.id)).slice(0, 10);
-              return [...curr, ...fresh];
-            }
-            return curr;
-          });
-        }
-      });
+      // Auto-fetch related songs in background if queue is short, online, and not local track
+      if (!resolvedTrack.isLocal && navigator.onLine) {
+        api.getRelated(resolvedTrack.id).then((related) => {
+          if (related && related.length > 0) {
+            setQueue((curr) => {
+              if (curr.length <= 3) {
+                const existingIds = new Set(curr.map((t) => t.id));
+                const fresh = related.filter((r) => !existingIds.has(r.id)).slice(0, 10);
+                return [...curr, ...fresh];
+              }
+              return curr;
+            });
+          }
+        }).catch(() => {});
+      }
     },
     []
   );
@@ -938,41 +1030,58 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       if (nextIdx < queue.length) {
+        const rawNext = queue[nextIdx];
         setQueueIndex(nextIdx);
-        setCurrentTrack(queue[nextIdx]);
         setProgress(0);
         userIntendedPlayingRef.current = true;
         setIsPlaying(true);
-        // Restore target volume
-        const win = window as any;
-        if (win.__ytPlayer) {
-          if (typeof win.__ytPlayer.setVolume === 'function') {
-            win.__ytPlayer.setVolume(targetVolumeRef.current);
+
+        if (rawNext.isLocal) {
+          getPlayableOfflineTrack(rawNext).then((resolved) => {
+            setCurrentTrack(resolved);
+            dispatchPlayCommand();
+          });
+        } else {
+          setCurrentTrack(rawNext);
+          const win = window as any;
+          if (win.__ytPlayer) {
+            if (typeof win.__ytPlayer.setVolume === 'function') {
+              win.__ytPlayer.setVolume(targetVolumeRef.current);
+            }
+            if (typeof win.__ytPlayer.loadVideoById === 'function') {
+              win.__ytPlayer.loadVideoById(rawNext.id);
+            }
           }
-          if (typeof win.__ytPlayer.loadVideoById === 'function') {
-            win.__ytPlayer.loadVideoById(queue[nextIdx].id);
-          }
+          dispatchPlayCommand();
         }
-        dispatchPlayCommand();
       } else if (repeatMode === 'all' && queue.length > 0) {
+        const rawFirst = queue[0];
         setQueueIndex(0);
-        setCurrentTrack(queue[0]);
         setProgress(0);
         userIntendedPlayingRef.current = true;
         setIsPlaying(true);
-        const win = window as any;
-        if (win.__ytPlayer) {
-          if (typeof win.__ytPlayer.setVolume === 'function') {
-            win.__ytPlayer.setVolume(targetVolumeRef.current);
+
+        if (rawFirst.isLocal) {
+          getPlayableOfflineTrack(rawFirst).then((resolved) => {
+            setCurrentTrack(resolved);
+            dispatchPlayCommand();
+          });
+        } else {
+          setCurrentTrack(rawFirst);
+          const win = window as any;
+          if (win.__ytPlayer) {
+            if (typeof win.__ytPlayer.setVolume === 'function') {
+              win.__ytPlayer.setVolume(targetVolumeRef.current);
+            }
+            if (typeof win.__ytPlayer.loadVideoById === 'function') {
+              win.__ytPlayer.loadVideoById(rawFirst.id);
+            } else if (typeof win.__ytPlayer.seekTo === 'function') {
+              win.__ytPlayer.seekTo(0, true);
+              win.__ytPlayer.playVideo();
+            }
           }
-          if (typeof win.__ytPlayer.loadVideoById === 'function') {
-            win.__ytPlayer.loadVideoById(queue[0].id);
-          } else if (typeof win.__ytPlayer.seekTo === 'function') {
-            win.__ytPlayer.seekTo(0, true);
-            win.__ytPlayer.playVideo();
-          }
+          dispatchPlayCommand();
         }
-        dispatchPlayCommand();
       } else {
         userIntendedPlayingRef.current = false;
         setIsPlaying(false);
@@ -989,16 +1098,25 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     if (queueIndex > 0) {
       const prevIdx = queueIndex - 1;
+      const rawPrev = queue[prevIdx];
       setQueueIndex(prevIdx);
-      setCurrentTrack(queue[prevIdx]);
       setProgress(0);
       userIntendedPlayingRef.current = true;
       setIsPlaying(true);
-      const win = window as any;
-      if (win.__ytPlayer && typeof win.__ytPlayer.setVolume === 'function') {
-        win.__ytPlayer.setVolume(targetVolumeRef.current);
+
+      if (rawPrev.isLocal) {
+        getPlayableOfflineTrack(rawPrev).then((resolved) => {
+          setCurrentTrack(resolved);
+          dispatchPlayCommand();
+        });
+      } else {
+        setCurrentTrack(rawPrev);
+        const win = window as any;
+        if (win.__ytPlayer && typeof win.__ytPlayer.setVolume === 'function') {
+          win.__ytPlayer.setVolume(targetVolumeRef.current);
+        }
+        dispatchPlayCommand();
       }
-      dispatchPlayCommand();
     } else {
       seekTo(0);
     }
@@ -1181,9 +1299,145 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, []);
 
-  const toggleShuffle = useCallback(() => {
-    setIsShuffle((prev) => !prev);
+  const [toastNotification, setToastNotification] = useState<{ message: string; type: 'info' | 'success' | 'warning' } | null>(null);
+  const showToast = useCallback((message: string, type: 'info' | 'success' | 'warning' = 'info', duration = 4000) => {
+    setToastNotification({ message, type });
+    setTimeout(() => {
+      setToastNotification((prev) => (prev?.message === message ? null : prev));
+    }, duration);
   }, []);
+
+  const cycleShuffleMode = useCallback(async () => {
+    setShuffleMode((prev) => {
+      if (prev === 'off') {
+        setIsShuffle(true);
+        showToast('🔀 シャッフル再生: ON', 'info', 1500);
+        return 'on';
+      }
+      if (prev === 'on') {
+        setIsShuffle(true);
+        if (currentTrack) {
+          api.getRelated(currentTrack.id).then((related) => {
+            if (related && related.length > 0) {
+              setQueue((curr) => {
+                const newItems = related.slice(0, 5).filter((r) => !curr.some((c) => c.id === r.id));
+                return [...curr, ...newItems];
+              });
+              showToast('✨ スマートシャッフル: おすすめ曲をキューに追加しました', 'success', 2500);
+            }
+          }).catch(() => {});
+        }
+        return 'smart';
+      }
+      setIsShuffle(false);
+      showToast('シャッフル再生: OFF', 'info', 1500);
+      return 'off';
+    });
+  }, [currentTrack, showToast]);
+
+  const toggleShuffle = useCallback(() => {
+    cycleShuffleMode();
+  }, [cycleShuffleMode]);
+
+  const setPlaybackRate = useCallback((rate: number) => {
+    setPlaybackRateState(rate);
+    try {
+      const win = window as any;
+      if (win.__ytPlayer && typeof win.__ytPlayer.setPlaybackRate === 'function') {
+        win.__ytPlayer.setPlaybackRate(rate);
+      }
+      const localAudio = document.querySelector('audio#local-audio-element') as HTMLAudioElement;
+      if (localAudio) {
+        localAudio.playbackRate = rate;
+      }
+    } catch {}
+    showToast(`再生速度: ${rate}x`, 'info', 1500);
+  }, [showToast]);
+
+  const setAudioQuality = useCallback((q: 'auto' | 'low' | 'normal' | 'high') => {
+    setAudioQualityState(q);
+    try {
+      localStorage.setItem('yt_audio_quality', q);
+    } catch {}
+    const labels = {
+      auto: '自動',
+      low: '低音質 (データ節約)',
+      normal: '標準 (160kbps)',
+      high: '最高音質 (320kbps相当)',
+    };
+    showToast(`音質設定: ${labels[q]}`, 'success', 2000);
+  }, [showToast]);
+
+  const setSleepTimer = useCallback((minutes: number | 'end_of_track') => {
+    if (minutes === 'end_of_track') {
+      setSleepTimerMode('end_of_track');
+      setSleepTimerRemaining(null);
+      showToast('🌙 スリープタイマー: この曲の終了時に一時停止します', 'info', 2500);
+      setSleepTimerModalOpen(false);
+      return;
+    }
+    const secs = minutes * 60;
+    setSleepTimerMode(minutes);
+    setSleepTimerRemaining(secs);
+    showToast(`🌙 スリープタイマー: ${minutes}分後に自動停止します`, 'info', 2500);
+    setSleepTimerModalOpen(false);
+  }, [showToast]);
+
+  const clearSleepTimer = useCallback(() => {
+    setSleepTimerMode(null);
+    setSleepTimerRemaining(null);
+    showToast('🌙 スリープタイマーを解除しました', 'info', 2000);
+  }, [showToast]);
+
+  // Sleep timer interval countdown
+  useEffect(() => {
+    if (sleepTimerRemaining === null || sleepTimerRemaining <= 0) return;
+    const interval = setInterval(() => {
+      setSleepTimerRemaining((prev) => {
+        if (prev === null) return null;
+        if (prev <= 1) {
+          pause();
+          setSleepTimerMode(null);
+          showToast('🌙 スリープタイマーにより一時停止しました', 'info', 3000);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [sleepTimerRemaining, pause, showToast]);
+
+  // Calculate Spotify Wrapped listening stats
+  const listeningStats = useMemo(() => {
+    const items = Object.values(historyStats);
+    const totalSecs = items.reduce((acc, curr) => acc + (curr.seconds || 0), 0);
+    const sortedTracks = [...items].sort((a, b) => b.count - a.count);
+
+    const artistCounts: Record<string, number> = {};
+    items.forEach((item) => {
+      const art = item.track.artist || 'Unknown';
+      artistCounts[art] = (artistCounts[art] || 0) + item.count;
+    });
+    const sortedArtists = Object.entries(artistCounts)
+      .map(([artist, count]) => ({ artist, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const hr = new Date().getHours();
+    let timeOfDay = '深夜型リスナー 🌙';
+    if (hr >= 5 && hr < 11) timeOfDay = '朝活・爽快リスナー 🌅';
+    else if (hr >= 11 && hr < 17) timeOfDay = '日中・作業集中リスナー ☀️';
+    else if (hr >= 17 && hr < 23) timeOfDay = '夜のリラックスリスナー 🌆';
+
+    const totalMins = Math.round(totalSecs / 60);
+    return {
+      totalMinutes: totalMins,
+      totalMinutesListened: totalMins,
+      totalPlayedTracks: sortedTracks.length,
+      topTracks: sortedTracks,
+      topArtists: sortedArtists,
+      timeOfDay,
+    };
+  }, [historyStats]);
 
   const cycleRepeat = useCallback(() => {
     setRepeatMode((prev) => {
@@ -1380,13 +1634,92 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [dispatchPlayCommand]
   );
 
+  const fallbackInProgressRef = useRef<boolean>(false);
+  const triedIdsRef = useRef<Set<string>>(new Set());
+
+  const onPlayerError = useCallback(
+    async (errorCode: number, _errorMsg?: string) => {
+      if (!currentTrack) return;
+
+      // Error 101/150: The owner has disabled embedding on other websites
+      // Error 100: Video not found/removed
+      // Error 2: Invalid parameter
+      if (errorCode === 101 || errorCode === 150 || errorCode === 100 || errorCode === 2) {
+        if (fallbackInProgressRef.current) return;
+        fallbackInProgressRef.current = true;
+        triedIdsRef.current.add(currentTrack.id);
+
+        showToast(`⚠️ 埋め込み制限（エラー${errorCode}）を検知。代替の公式音源へ自動切替中...`, 'warning', 3500);
+
+        try {
+          const excludeParam = encodeURIComponent(Array.from(triedIdsRef.current).join(','));
+          const res = await fetch(
+            `/api/music/fallback?title=${encodeURIComponent(currentTrack.title)}&artist=${encodeURIComponent(
+              currentTrack.artist
+            )}&exclude=${excludeParam}`
+          );
+          const data = await res.json();
+
+          if (data.success && data.track && data.track.id) {
+            const alternate = data.track;
+            const updatedTrack: Track = {
+              ...currentTrack,
+              id: alternate.id,
+              title: alternate.title || currentTrack.title,
+              artist: alternate.artist || currentTrack.artist,
+              thumbnail: alternate.thumbnail || currentTrack.thumbnail,
+              duration: alternate.duration || currentTrack.duration,
+              durationSeconds: alternate.durationSeconds || currentTrack.durationSeconds,
+            };
+
+            // Update in queue
+            setQueue((prev) =>
+              prev.map((t, idx) => (idx === queueIndex || t.id === currentTrack.id ? updatedTrack : t))
+            );
+            setCurrentTrack(updatedTrack);
+            setIsPlaying(true);
+            userIntendedPlayingRef.current = true;
+
+            showToast(`✅ 埋め込み可能な代替音源（公式トピック版）へ自動切替しました`, 'success', 4000);
+
+            setTimeout(() => {
+              fallbackInProgressRef.current = false;
+            }, 1500);
+            return;
+          }
+        } catch (err) {
+          console.warn('[AutoFallback] Failed to fetch alternative:', err);
+        }
+
+        // If fallback fails, skip to next track in queue smoothly
+        showToast(`⚠️ 再生可能な代替音源が見つからないため、次の曲へスキップします`, 'info', 3000);
+        setTimeout(() => {
+          fallbackInProgressRef.current = false;
+          nextTrack();
+        }, 1200);
+      }
+    },
+    [currentTrack, queueIndex, nextTrack, showToast]
+  );
+
   const onPlayerTrackEnded = useCallback(() => {
+    if (sleepTimerMode === 'end_of_track') {
+      pause();
+      setSleepTimerMode(null);
+      showToast('🌙 スリープタイマーにより一時停止しました', 'info', 3000);
+      return;
+    }
     nextTrack();
-  }, [nextTrack]);
+  }, [nextTrack, pause, sleepTimerMode, showToast]);
 
   return (
     <PlayerContext.Provider
       value={{
+        toastNotification,
+        setToastNotification,
+        showToast,
+        onPlayerError,
+
         currentTrack,
         queue,
         queueIndex,
@@ -1398,8 +1731,25 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         playerMode,
         repeatMode,
         isShuffle,
+        shuffleMode,
+        cycleShuffleMode,
+        playbackRate,
+        setPlaybackRate,
+        audioQuality,
+        setAudioQuality,
+        sleepTimerRemaining,
+        sleepTimerMode,
+        setSleepTimer,
+        clearSleepTimer,
+        sleepTimerModalOpen,
+        setSleepTimerModalOpen,
+        wrappedModalOpen,
+        setWrappedModalOpen,
+        listeningStats,
         lyricsOpen,
         queueOpen,
+        fullScreenPlayerOpen,
+        setFullScreenPlayerOpen,
         inspectorOpen,
         activeView,
         selectedEntityId,
