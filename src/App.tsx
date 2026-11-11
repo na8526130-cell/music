@@ -33,7 +33,6 @@ import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { FullScreenPlayerModal } from './components/FullScreenPlayerModal';
 import { BottomTabBar } from './components/BottomTabBar';
-import { SleepTimerModal } from './components/SleepTimerModal';
 import { ListeningWrappedModal } from './components/ListeningWrappedModal';
 
 const MainLayout: React.FC = () => {
@@ -170,8 +169,7 @@ const MainLayout: React.FC = () => {
         onClose={() => setCollabModalOpen(false)}
       />
 
-      {/* Spotify Sleep Timer & Wrapped Modals */}
-      <SleepTimerModal />
+      {/* Spotify Wrapped Modal */}
       <ListeningWrappedModal />
 
       {/* In-App PWA Install Promotion Banner */}

@@ -27,7 +27,6 @@ import {
   AppWindow,
   MessageSquare,
   Maximize2,
-  Moon,
   Gauge,
 } from 'lucide-react';
 
@@ -61,9 +60,6 @@ export const PlayerBar: React.FC = () => {
     cycleShuffleMode,
     playbackRate,
     setPlaybackRate,
-    sleepTimerRemaining,
-    sleepTimerMode,
-    setSleepTimerModalOpen,
     playerMode,
     setPlayerMode,
     setVideoLayout,
@@ -525,41 +521,7 @@ export const PlayerBar: React.FC = () => {
             )}
           </div>
 
-          {/* Spotify Sleep Timer */}
-          <button
-            type="button"
-            onClick={() => setSleepTimerModalOpen(true)}
-            title={
-              sleepTimerMode !== null
-                ? `スリープタイマー作動中: ${
-                    sleepTimerMode === 'end_of_track'
-                      ? 'この曲の終了時'
-                      : `残り約${sleepTimerRemaining ? Math.ceil(sleepTimerRemaining / 60) : 0}分`
-                  }`
-                : 'スリープタイマーを設定 (おやすみタイマー)'
-            }
-            className={`px-2 py-1 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
-              sleepTimerMode !== null
-                ? 'bg-red-950/70 border border-red-700/60 text-red-300 shadow-sm shadow-red-950/50'
-                : 'bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white'
-            }`}
-          >
-            <Moon
-              className={`w-3.5 h-3.5 ${
-                sleepTimerMode !== null ? 'text-red-400 fill-red-400/40' : 'text-neutral-500'
-              }`}
-            />
-            <span className="hidden xl:inline text-[11px] font-medium font-mono">
-              {sleepTimerMode === null
-                ? 'タイマー'
-                : sleepTimerMode === 'end_of_track'
-                ? '曲末'
-                : `${sleepTimerRemaining ? Math.ceil(sleepTimerRemaining / 60) : 0}m`}
-            </span>
-            {sleepTimerMode !== null && (
-              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-            )}
-          </button>
+
 
           {/* Spotify Playback Speed Selector */}
           <div className="relative hidden xl:block">

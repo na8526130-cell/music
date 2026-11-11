@@ -23,7 +23,6 @@ import {
   Sparkles,
   X,
   Disc,
-  Moon,
   Gauge,
   Volume2,
   Award,
@@ -64,9 +63,6 @@ export const FullScreenPlayerModal: React.FC = () => {
     setLyricsOpen,
     currentLyrics,
     startRadioForTrack,
-    sleepTimerRemaining,
-    sleepTimerMode,
-    setSleepTimerModalOpen,
     playbackRate,
     setPlaybackRate,
     shuffleMode,
@@ -185,21 +181,6 @@ export const FullScreenPlayerModal: React.FC = () => {
                 >
                   <Radio className="w-4 h-4 text-red-500" />
                   <span>この曲のRadioを開始</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSleepTimerModalOpen(true)}
-                  className="w-full px-4 py-2.5 text-left text-xs font-medium text-neutral-200 hover:bg-red-600/20 hover:text-white flex items-center gap-2.5 transition-colors cursor-pointer"
-                >
-                  <Moon className="w-4 h-4 text-red-500" />
-                  <span>
-                    スリープタイマー
-                    {sleepTimerRemaining
-                      ? ` (残り${Math.ceil(sleepTimerRemaining / 60)}分)`
-                      : sleepTimerMode === 'end_of_track'
-                      ? ' (曲終了時)'
-                      : ''}
-                  </span>
                 </button>
                 <button
                   type="button"
@@ -462,25 +443,6 @@ export const FullScreenPlayerModal: React.FC = () => {
                 </div>
               )}
             </div>
-
-            {/* Sleep Timer */}
-            <button
-              type="button"
-              onClick={() => setSleepTimerModalOpen(true)}
-              className={`p-2 transition-colors cursor-pointer flex items-center gap-1 ${
-                sleepTimerRemaining !== null || sleepTimerMode !== null
-                  ? 'text-red-400'
-                  : 'hover:text-white'
-              }`}
-              title="スリープタイマー"
-            >
-              <Moon className="w-5 h-5 fill-current" />
-              {sleepTimerRemaining && (
-                <span className="text-[10px] font-mono font-bold">
-                  {Math.ceil(sleepTimerRemaining / 60)}m
-                </span>
-              )}
-            </button>
 
             <button
               type="button"

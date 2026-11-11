@@ -25,6 +25,7 @@ import {
   seedDemoOfflineTrack,
 } from '../services/offlineStorage';
 import { Track } from '../types/music';
+import { SafeImage } from '../components/SafeImage';
 
 export const LibraryView: React.FC = () => {
   const {
@@ -277,10 +278,10 @@ export const LibraryView: React.FC = () => {
                       {idx + 1}
                     </span>
                     <div className="relative shrink-0">
-                      <img
+                      <SafeImage
                         src={track.thumbnail}
                         alt={track.title}
-                        referrerPolicy="no-referrer"
+                        useBase64
                         className="w-11 h-11 rounded-lg object-cover bg-neutral-800"
                       />
                       <button
@@ -365,10 +366,10 @@ export const LibraryView: React.FC = () => {
                   <span className="w-6 text-center text-xs font-mono text-neutral-500">
                     {idx + 1}
                   </span>
-                  <img
+                  <SafeImage
                     src={track.thumbnail}
                     alt={track.title}
-                    referrerPolicy="no-referrer"
+                    useBase64
                     className="w-10 h-10 rounded-lg object-cover bg-neutral-800 shrink-0"
                   />
                   <div className="flex-1 min-w-0">
@@ -564,10 +565,10 @@ export const LibraryView: React.FC = () => {
                       <span className="w-6 text-center text-xs font-mono text-neutral-500">
                         {idx + 1}
                       </span>
-                      <img
+                      <SafeImage
                         src={track.thumbnail}
                         alt={track.title}
-                        referrerPolicy="no-referrer"
+                        useBase64
                         className="w-10 h-10 rounded-lg object-cover bg-neutral-800 shrink-0"
                       />
                       <div className="flex-1 min-w-0">

@@ -32,14 +32,7 @@ interface PlayerContextType {
   fullScreenPlayerOpen: boolean;
   setFullScreenPlayerOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
-  // Spotify Features: Sleep Timer, Playback Speed, Smart Shuffle, Audio Quality & Wrapped
-  sleepTimerRemaining: number | null;
-  sleepTimerMode: number | 'end_of_track' | null;
-  setSleepTimer: (minutes: number | 'end_of_track') => void;
-  clearSleepTimer: () => void;
-  sleepTimerModalOpen: boolean;
-  setSleepTimerModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-
+  // Spotify Features: Playback Speed, Smart Shuffle, Audio Quality & Wrapped
   playbackRate: number;
   setPlaybackRate: (rate: number) => void;
 
@@ -248,10 +241,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Playlist Import Modal open
   const [importModalOpen, setImportModalOpen] = useState<boolean>(false);
 
-  // Spotify Features States
-  const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
-  const [sleepTimerMode, setSleepTimerMode] = useState<number | 'end_of_track' | null>(null);
-  const [sleepTimerModalOpen, setSleepTimerModalOpen] = useState<boolean>(false);
 
   const [playbackRate, setPlaybackRateState] = useState<number>(1.0);
   const [shuffleMode, setShuffleMode] = useState<'off' | 'on' | 'smart'>('off');
@@ -1368,44 +1357,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     showToast(`音質設定: ${labels[q]}`, 'success', 2000);
   }, [showToast]);
 
-  const setSleepTimer = useCallback((minutes: number | 'end_of_track') => {
-    if (minutes === 'end_of_track') {
-      setSleepTimerMode('end_of_track');
-      setSleepTimerRemaining(null);
-      showToast('🌙 スリープタイマー: この曲の終了時に一時停止します', 'info', 2500);
-      setSleepTimerModalOpen(false);
-      return;
-    }
-    const secs = minutes * 60;
-    setSleepTimerMode(minutes);
-    setSleepTimerRemaining(secs);
-    showToast(`🌙 スリープタイマー: ${minutes}分後に自動停止します`, 'info', 2500);
-    setSleepTimerModalOpen(false);
-  }, [showToast]);
-
-  const clearSleepTimer = useCallback(() => {
-    setSleepTimerMode(null);
-    setSleepTimerRemaining(null);
-    showToast('🌙 スリープタイマーを解除しました', 'info', 2000);
-  }, [showToast]);
-
-  // Sleep timer interval countdown
-  useEffect(() => {
-    if (sleepTimerRemaining === null || sleepTimerRemaining <= 0) return;
-    const interval = setInterval(() => {
-      setSleepTimerRemaining((prev) => {
-        if (prev === null) return null;
-        if (prev <= 1) {
-          pause();
-          setSleepTimerMode(null);
-          showToast('🌙 スリープタイマーにより一時停止しました', 'info', 3000);
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [sleepTimerRemaining, pause, showToast]);
 
   // Calculate Spotify Wrapped listening stats
   const listeningStats = useMemo(() => {
@@ -1703,14 +1654,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 
   const onPlayerTrackEnded = useCallback(() => {
-    if (sleepTimerMode === 'end_of_track') {
-      pause();
-      setSleepTimerMode(null);
-      showToast('🌙 スリープタイマーにより一時停止しました', 'info', 3000);
-      return;
-    }
     nextTrack();
-  }, [nextTrack, pause, sleepTimerMode, showToast]);
+  }, [nextTrack]);
 
   return (
     <PlayerContext.Provider
@@ -1737,12 +1682,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setPlaybackRate,
         audioQuality,
         setAudioQuality,
-        sleepTimerRemaining,
-        sleepTimerMode,
-        setSleepTimer,
-        clearSleepTimer,
-        sleepTimerModalOpen,
-        setSleepTimerModalOpen,
         wrappedModalOpen,
         setWrappedModalOpen,
         listeningStats,

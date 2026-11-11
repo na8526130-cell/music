@@ -3,6 +3,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { api } from '../services/api';
 import { Track } from '../types/music';
 import { X, Trash2, Play, Plus, Sparkles, Music } from 'lucide-react';
+import { SafeImage } from './SafeImage';
 
 export const QueueDrawer: React.FC = () => {
   const {
@@ -79,10 +80,10 @@ export const QueueDrawer: React.FC = () => {
               再生中
             </span>
             <div className="flex items-center gap-3 p-2 rounded-lg bg-red-600/10 border border-red-500/20">
-              <img
+              <SafeImage
                 src={currentTrack.thumbnail}
                 alt={currentTrack.title}
-                referrerPolicy="no-referrer"
+                useBase64
                 className="w-12 h-12 rounded object-cover shadow shrink-0"
               />
               <div className="flex-1 min-w-0">
@@ -118,10 +119,10 @@ export const QueueDrawer: React.FC = () => {
                     <span className="w-5 text-center text-xs font-mono text-neutral-500">
                       {idx + 1}
                     </span>
-                    <img
+                    <SafeImage
                       src={track.thumbnail}
                       alt={track.title}
-                      referrerPolicy="no-referrer"
+                      useBase64
                       className="w-10 h-10 rounded object-cover shrink-0"
                     />
                     <div className="flex-1 min-w-0">
@@ -176,10 +177,10 @@ export const QueueDrawer: React.FC = () => {
                   key={rel.id}
                   className="flex items-center gap-3 p-2 rounded-lg hover:bg-neutral-800/50 group transition-colors"
                 >
-                  <img
+                  <SafeImage
                     src={rel.thumbnail}
                     alt={rel.title}
-                    referrerPolicy="no-referrer"
+                    useBase64
                     className="w-9 h-9 rounded object-cover shrink-0"
                   />
                   <div className="flex-1 min-w-0">

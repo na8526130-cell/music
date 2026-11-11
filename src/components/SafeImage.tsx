@@ -16,67 +16,48 @@ export const SafeImage: React.FC<SafeImageProps> = ({
   useBase64 = false,
   ...props
 }) => {
-  const [imgSrc, setImgSrc] = useState<string | undefined>(src);
+  // Determine initial source URL
+  const getInitialSrc = (rawSrc?: string): string | undefined => {
+    if (!rawSrc) return undefined;
+    if (rawSrc.startsWith('data:') || rawSrc.startsWith('/') || rawSrc.startsWith('./')) {
+      return rawSrc;
+    }
+    // For external HTTP/HTTPS images, if useBase64/proxy is enabled, use server proxy directly
+    if (useBase64 && rawSrc.startsWith('http')) {
+      return `/api/proxy/image?url=${encodeURIComponent(rawSrc)}`;
+    }
+    return rawSrc;
+  };
+
+  const [currentSrc, setCurrentSrc] = useState<string | undefined>(() => getInitialSrc(src));
   const [hasError, setHasError] = useState(false);
-  const [isBase64Loaded, setIsBase64Loaded] = useState(false);
+  const [triedProxy, setTriedProxy] = useState(false);
 
   useEffect(() => {
     setHasError(false);
-    if (!src) {
-      setImgSrc(undefined);
-      return;
-    }
-
-    // If base64 is explicitly requested or if it's already a data URI
-    if (useBase64 && src.startsWith('http')) {
-      fetch(`/api/proxy/image?url=${encodeURIComponent(src)}&format=base64`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.base64) {
-            setImgSrc(data.base64);
-            setIsBase64Loaded(true);
-          } else {
-            setImgSrc(src);
-          }
-        })
-        .catch(() => {
-          setImgSrc(src);
-        });
-    } else {
-      setImgSrc(src);
-    }
+    setTriedProxy(false);
+    setCurrentSrc(getInitialSrc(src));
   }, [src, useBase64]);
 
   const handleError = () => {
-    // If not already tried via base64 proxy, try fetching base64 representation via backend proxy
-    if (src && src.startsWith('http') && !isBase64Loaded) {
-      fetch(`/api/proxy/image?url=${encodeURIComponent(src)}&format=base64`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.base64) {
-            setImgSrc(data.base64);
-            setIsBase64Loaded(true);
-            setHasError(false);
-          } else {
-            setHasError(true);
-          }
-        })
-        .catch(() => {
-          setHasError(true);
-        });
+    // If direct image URL failed and we haven't tried the backend proxy yet, switch to backend proxy
+    if (src && src.startsWith('http') && !triedProxy) {
+      setTriedProxy(true);
+      setCurrentSrc(`/api/proxy/image?url=${encodeURIComponent(src)}`);
     } else {
       setHasError(true);
     }
   };
 
-  if (!imgSrc || hasError) {
+  if (!currentSrc || hasError) {
     return (
       <div
-        className={`bg-neutral-800 flex flex-col items-center justify-center text-neutral-500 overflow-hidden select-none ${className}`}
+        className={`bg-neutral-900 border border-neutral-800 flex flex-col items-center justify-center text-neutral-600 overflow-hidden select-none ${className}`}
+        title={alt || fallbackText}
       >
-        <Music2 className="w-1/2 h-1/2 opacity-40 shrink-0" />
+        <Music2 className="w-1/2 h-1/2 opacity-30 text-red-500/50 shrink-0" />
         {fallbackText && (
-          <span className="text-[10px] mt-1 text-center font-medium line-clamp-1 px-1">
+          <span className="text-[10px] mt-1 text-center font-medium text-neutral-400 line-clamp-1 px-1">
             {fallbackText}
           </span>
         )}
@@ -86,7 +67,7 @@ export const SafeImage: React.FC<SafeImageProps> = ({
 
   return (
     <img
-      src={imgSrc}
+      src={currentSrc}
       alt={alt}
       referrerPolicy="no-referrer"
       onError={handleError}
