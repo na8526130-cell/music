@@ -40,8 +40,8 @@ export const SafeImage: React.FC<SafeImageProps> = ({
   }, [src, useBase64]);
 
   const handleError = () => {
-    // If direct image URL failed and we haven't tried the backend proxy yet, switch to backend proxy
-    if (src && src.startsWith('http') && !triedProxy) {
+    // If direct image URL failed and we haven't tried the backend proxy yet, try proxy once
+    if (src && src.startsWith('http') && !useBase64 && !triedProxy) {
       setTriedProxy(true);
       setCurrentSrc(`/api/proxy/image?url=${encodeURIComponent(src)}`);
     } else {

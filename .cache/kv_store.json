@@ -1,0 +1,1853 @@
+{
+  "oricon:digital": {
+    "value": [
+      {
+        "id": "FTKQXxMuJaQ",
+        "rank": 1,
+        "title": "NOW U KNOW",
+        "artist": "BE:FIRST",
+        "metric": "ダウンロード数：17,266DL",
+        "thumbnail": "https://yt3.googleusercontent.com/4CAVoylnMp7cENxdDUcU8LiaJiryy2HNCzbHS5n2YapFZ27KgtU8mOlf3RXbPapSl-VanIDN7OxSgkI=w120-h120-l90-rj",
+        "duration": "2:59",
+        "durationSeconds": 179,
+        "rankType": "digital"
+      },
+      {
+        "id": "JIzJxsk4tw8",
+        "rank": 2,
+        "title": "いけても無理でも",
+        "artist": "新しい地図 join ミュージック",
+        "metric": "ダウンロード数：4,961DL",
+        "thumbnail": "https://yt3.googleusercontent.com/ekNGvThooyv1q2uWTHwfvQGLokg8Bp-qMAjXPJDGNwP9Jy_dzKwcC7CeLwUYsIGqjvn3xKIqujT7Fcxo=w120-h120-l90-rj",
+        "duration": "3:51",
+        "durationSeconds": 231,
+        "rankType": "digital"
+      },
+      {
+        "id": "XoxFd8Z3DUg",
+        "rank": 3,
+        "title": "咲き誇れ",
+        "artist": "YOASOBI",
+        "metric": "ダウンロード数：4,940DL",
+        "thumbnail": "https://yt3.googleusercontent.com/wGI8EDwc94Afkg8O9VmJu3BAveMq_SK65nfB2nWskpnZ8YnOF-M4_ek_fTAqoPIWANDefVSLnyVkeqGB=w120-h120-l90-rj",
+        "duration": "4:07",
+        "durationSeconds": 247,
+        "rankType": "digital"
+      },
+      {
+        "id": "t1y3x1LgZgs",
+        "rank": 4,
+        "title": "ダイヤモンドカット",
+        "artist": "新しい地図 join ミュージック",
+        "metric": "ダウンロード数：4,882DL",
+        "thumbnail": "https://yt3.googleusercontent.com/6GpQnGZx36p0B3FipJEt97LyFncZj1QXLVLtwmjvnDHLvOYG94THAJksn99mWx3OxaCJcwTjtt_79Lp4=w120-h120-l90-rj",
+        "duration": "4:34",
+        "durationSeconds": 274,
+        "rankType": "digital"
+      },
+      {
+        "id": "GdsmUAvzzAo",
+        "rank": 5,
+        "title": "One Shot (『仮面ライダーマイス』主題歌)",
+        "artist": "THE RAMPAGE from EXILE TRIBE",
+        "metric": "ダウンロード数：4,098DL",
+        "thumbnail": "https://yt3.googleusercontent.com/ryfoXp2H9jt7J0qUW4eaOxqF46ncc0-aDDd0YDqFi8uOzZaxLHCbSEJkEfWGLELWeaOVeNBvw3pahC7F-Q=w120-h120-l90-rj",
+        "duration": "2:50",
+        "durationSeconds": 170,
+        "rankType": "digital"
+      },
+      {
+        "id": "fE6_K8o0jhI",
+        "rank": 6,
+        "title": "ザッツ!超常",
+        "artist": "M!LK",
+        "metric": "ダウンロード数：3,162DL",
+        "thumbnail": "https://yt3.googleusercontent.com/gQi4ySlHLsGn2GiikxdWUyjxcLPTBP052vcGBgEpGE7zHuh_NsVn6OTeq_6xPdoKXn2u07-ythg4fvqn=w120-h120-l90-rj",
+        "duration": "3:26",
+        "durationSeconds": 206,
+        "rankType": "digital"
+      },
+      {
+        "id": "9usQE6QaH5k",
+        "rank": 7,
+        "title": "キツネノボタン",
+        "artist": "スピッツ",
+        "metric": "ダウンロード数：2,898DL",
+        "thumbnail": "https://yt3.googleusercontent.com/WqhlyXmhowZC-xX4uW7IqGP_3KAI7-Tut7JKu8cd6v0UvvYgh1GKq_JEDjaLtNmcM8ToJqgrFWSK1k7w=w120-h120-l90-rj",
+        "duration": "4:12",
+        "durationSeconds": 252,
+        "rankType": "digital"
+      },
+      {
+        "id": "q0OGymI3LMs",
+        "rank": 8,
+        "title": "シンカ",
+        "artist": "Ado",
+        "metric": "ダウンロード数：2,705DL",
+        "thumbnail": "https://yt3.googleusercontent.com/Pdcv_XDxPZgHYPKmi9MlFT5vLn3fmjCMlB8bUjwnhDJ0Kr0YFeYHPqpNaQRKC40MwVaTX3PASbuJGjM=w120-h120-l90-rj",
+        "duration": "3:20",
+        "durationSeconds": 200,
+        "rankType": "digital"
+      },
+      {
+        "id": "YImYMQpNjqc",
+        "rank": 9,
+        "title": "雲を抜け風下へ私だけ",
+        "artist": "ヨルシカ",
+        "metric": "ダウンロード数：2,701DL",
+        "thumbnail": "https://yt3.googleusercontent.com/C1PMq9YQyV4QPvJ_W4yo8xafzlF0gxC3jeZ2NNnQk-hX0MpBoSCAzy5nksdcgbzcXztvy1A9yt8QKgja=w120-h120-l90-rj",
+        "duration": "3:59",
+        "durationSeconds": 239,
+        "rankType": "digital"
+      },
+      {
+        "id": "IocKOiQR6qo",
+        "rank": 10,
+        "title": "爆裂愛しすぎて滅! (Crazy Mashup by TeddyLoid)",
+        "artist": "M!LK",
+        "metric": "ダウンロード数：2,674DL",
+        "thumbnail": "https://yt3.googleusercontent.com/ndxiSEITqT3JUzcj5V8gaNbsHF3DYIIFib6nGidX01vDKYXyZHVL5Y8X04VKIHa6r-MHO5LmsWSd6Qb2=w120-h120-l90-rj",
+        "duration": "3:54",
+        "durationSeconds": 234,
+        "rankType": "digital"
+      }
+    ],
+    "createdAt": 1794473261752,
+    "expiresAt": 1794494861752
+  },
+  "oricon:streaming": {
+    "value": [
+      {
+        "id": "mGFi9UnCjCE",
+        "rank": 1,
+        "title": "Yes! 東京 (feat.超特急 / M!LK / SUPER★DRAGON / Sakurashimeji / ONE N' ONLY / 原因は自分にある。 / BUDDiiS / ICEx / Lienel)",
+        "artist": "EBiDAN (恵比寿学園男子部)",
+        "metric": "再生数：7,844,907回",
+        "thumbnail": "https://yt3.googleusercontent.com/pi5QDwxz6w2nNShQqq_Hfgz17GISa97pP7pNbc7EwjBbkD1SF4L3uaHfarQT--6nnqPO0LmumW1YuBv0=w120-h120-l90-rj",
+        "duration": "3:41",
+        "durationSeconds": 221,
+        "rankType": "streaming"
+      },
+      {
+        "id": "Xay0HJ4LsNc",
+        "rank": 2,
+        "title": "しわあわせ",
+        "artist": "Vaundy",
+        "metric": "再生数：7,764,849回",
+        "thumbnail": "https://yt3.googleusercontent.com/pYNfOjHHfaINeMxgblPBaHPqz8GLCuD9mkxpUqfdeDsMj2YUoWDO3oYUggUnayW9V8CY0YWOYWoC6QA=w120-h120-l90-rj",
+        "duration": "4:39",
+        "durationSeconds": 279,
+        "rankType": "streaming"
+      },
+      {
+        "id": "bafSniJZQtk",
+        "rank": 3,
+        "title": "ラブリーズン",
+        "artist": "原因は自分にある。",
+        "metric": "再生数：7,541,059回",
+        "thumbnail": "https://yt3.googleusercontent.com/D1zJfREknxR921op4CDIk7mszH_gEfZ2dzO68-Qo79Q3kw4vpN575nNRrA5t65iy_rsuJbC-8Kde5j3hFA=w120-h120-l90-rj",
+        "duration": "3:40",
+        "durationSeconds": 220,
+        "rankType": "streaming"
+      },
+      {
+        "id": "HdjrIrRDhic",
+        "rank": 4,
+        "title": "結び",
+        "artist": "Ayumu Imazu",
+        "metric": "再生数：7,476,502回",
+        "thumbnail": "https://yt3.googleusercontent.com/soKqpUQ52RruKvtG4iuNO8v9JjozLGVLiyaypqW-3B3pfUwC3gVb7lP_ioVuOBAzMarPJ22vgLaQfhA=w120-h120-l90-rj",
+        "duration": "3:27",
+        "durationSeconds": 207,
+        "rankType": "streaming"
+      },
+      {
+        "id": "fE6_K8o0jhI",
+        "rank": 5,
+        "title": "ザッツ!超常",
+        "artist": "M!LK",
+        "metric": "再生数：6,581,154回",
+        "thumbnail": "https://yt3.googleusercontent.com/gQi4ySlHLsGn2GiikxdWUyjxcLPTBP052vcGBgEpGE7zHuh_NsVn6OTeq_6xPdoKXn2u07-ythg4fvqn=w120-h120-l90-rj",
+        "duration": "3:26",
+        "durationSeconds": 206,
+        "rankType": "streaming"
+      },
+      {
+        "id": "FTKQXxMuJaQ",
+        "rank": 6,
+        "title": "NOW U KNOW",
+        "artist": "BE:FIRST",
+        "metric": "再生数：6,276,372回",
+        "thumbnail": "https://yt3.googleusercontent.com/4CAVoylnMp7cENxdDUcU8LiaJiryy2HNCzbHS5n2YapFZ27KgtU8mOlf3RXbPapSl-VanIDN7OxSgkI=w120-h120-l90-rj",
+        "duration": "2:59",
+        "durationSeconds": 179,
+        "rankType": "streaming"
+      },
+      {
+        "id": "sFdZhI3CMhs",
+        "rank": 7,
+        "title": "Surprise Box",
+        "artist": "めいちゃん",
+        "metric": "再生数：6,242,767回",
+        "thumbnail": "https://yt3.googleusercontent.com/g6yPmNs4khWxjfS2OlXk_eJjdhSKjRBQ2AUbLHMNNaCSGmKUdb7XBMHN0Dd_O20COdRLA9-reVwFeXw=w120-h120-l90-rj",
+        "duration": "4:03",
+        "durationSeconds": 243,
+        "rankType": "streaming"
+      },
+      {
+        "id": "UF2rHapYjK4",
+        "rank": 8,
+        "title": "ありふれた世界の果てに (feat. Awich, CHICO CARLITO, ONE OK ROCK & Paledusk)",
+        "artist": "YAO",
+        "metric": "再生数：5,061,097回",
+        "thumbnail": "https://yt3.googleusercontent.com/3WkYPuESPl5D5CEelsEihKjOqAxVrBUYV9BwpKuUrQbCRITrUezDmg8K6WP8HYg7BxQaxmurzbGG90UWoQ=w120-h120-l90-rj",
+        "duration": "3:55",
+        "durationSeconds": 235,
+        "rankType": "streaming"
+      },
+      {
+        "id": "14cxcH1eiPc",
+        "rank": 9,
+        "title": "好きすぎて滅!",
+        "artist": "M!LK",
+        "metric": "再生数：5,060,818回",
+        "thumbnail": "https://yt3.googleusercontent.com/EsTVxZWnPqCU5oalIs492UmiVQLsg66BhJsmIPVXRboF6wUkiQpTpVV8VThBDxp7Myx9E7JfWixyS7j8jw=w120-h120-l90-rj",
+        "duration": "3:33",
+        "durationSeconds": 213,
+        "rankType": "streaming"
+      },
+      {
+        "id": "xSFW08JrHVo",
+        "rank": 10,
+        "title": "Brand New",
+        "artist": "Mrs. GREEN APPLE",
+        "metric": "再生数：4,741,037回",
+        "thumbnail": "https://yt3.googleusercontent.com/CF7T3iQDMhrwvVk3MRWr2_HFNGyTfSC5i8UcveS0Jdhm1rUD1tTHq8oOYw4D2ck22eiM6K9JL2uYMTY=w120-h120-l90-rj",
+        "duration": "3:32",
+        "durationSeconds": 212,
+        "rankType": "streaming"
+      }
+    ],
+    "createdAt": 1794473263186,
+    "expiresAt": 1794494863186
+  },
+  "explore:home_feed": {
+    "value": {
+      "trending": [
+        {
+          "id": "OBgqMAF09mg",
+          "title": "しおざきわんだーらんど (塩﨑太智) - Shiozaki Wonderland (Daichi Shiozaki)",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/OBgqMAF09mg/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3nBc1gDtzWXPugldCRz4TQGNaTTZw",
+          "views": ""
+        },
+        {
+          "id": "Rv_unO1n6U8",
+          "title": "ふぉ〜ゆ〜「BLOOM WORLD」【Official Music Video】",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/Rv_unO1n6U8/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mIrTv-bP-a0iCIVt_4dVF9l5Xk8A",
+          "views": ""
+        },
+        {
+          "id": "I83-uq6iwcM",
+          "title": "NOW U KNOW",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/I83-uq6iwcM/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3lz2xlCglyOTfd1YDOgkA3Mb6XvNA",
+          "views": ""
+        },
+        {
+          "id": "ftDNJhhJ22k",
+          "title": "DEPENDS",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/ftDNJhhJ22k/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3kX0V3vJyWPIFhWOQq_-9BItUIRqQ",
+          "views": ""
+        },
+        {
+          "id": "OzhgQxSoljI",
+          "title": "乃木坂46『君ロス』MUSIC VIDEO",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/OzhgQxSoljI/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3lJzFpxcDadzUo9915vPNUamJ1onw",
+          "views": ""
+        },
+        {
+          "id": "F8YyP5wtvVw",
+          "title": "ザッツ！超常 - That's!Chojo",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/F8YyP5wtvVw/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3nsPjnnD7tN508tCtgSVRVcwjBbUw",
+          "views": ""
+        },
+        {
+          "id": "RbFJ-eb_7vs",
+          "title": "Slidin",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/RbFJ-eb_7vs/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3nIBATrBvy_TdD-Z5usL72Is7249w",
+          "views": ""
+        },
+        {
+          "id": "Hn0IiJlBV8Y",
+          "title": "Kenshi Yonezu - Lemon  (Live)   Music Video 10億回記念 🍋  Celebrating 1 Billion Views",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/Hn0IiJlBV8Y/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3kdPdRhS2gzUiHvl-HTqs5KI45g1Q",
+          "views": ""
+        },
+        {
+          "id": "UhgzAZ6u7so",
+          "title": "Love Me Madly",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/UhgzAZ6u7so/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mkcqhrwqpcE0dQfWlHcgCbg3F-NQ",
+          "views": ""
+        },
+        {
+          "id": "8aoYUxGMz3E",
+          "title": "君と生きて君と死にたい！ / キタニタツヤ -  Wanna Live and Die with You! / Tatsuya Kitani",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/8aoYUxGMz3E/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3m0ofsN7UmQv4lkUmDfki0fVtvTVw",
+          "views": ""
+        },
+        {
+          "id": "kah_mp9tCtE",
+          "title": "吉田仁人 - 愛の形(Official Music Video)",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/kah_mp9tCtE/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3nf8DKnHS8TqjUuXORyIdpuFdvW5Q",
+          "views": ""
+        },
+        {
+          "id": "arYdao9QfPk",
+          "title": "『しわあわせ | Vaundy』acoustic cover. 優里 × 花村想太(Da-iCE)",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/arYdao9QfPk/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3kEFbgx8btbOhe6M2bmuNcOVkVV0g",
+          "views": ""
+        },
+        {
+          "id": "CbqGuHboaDI",
+          "title": "爆裂愛しすぎて滅！(Crazy Mashup by TeddyLoid) - Bakuretsu Aishisugite METSU!(Crazy Mashup by TeddyLoid)",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/CbqGuHboaDI/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3nYi2OfGFiO_PykWGpFLQ0uAM24rg",
+          "views": ""
+        },
+        {
+          "id": "8oiyutRI3nI",
+          "title": "プレイバック feat. 初音ミク, 雨衣 / “Playback” ft. Miku, Ui",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/8oiyutRI3nI/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3nUA0BCJaNFmYFotxMyN3nS2QrjpA",
+          "views": ""
+        },
+        {
+          "id": "a0cjLAQv20s",
+          "title": "SUIATSU",
+          "artist": "Stray Kids",
+          "album": "SUIATSU",
+          "albumId": "MPREb_2nI9fmnYuVc",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://yt3.googleusercontent.com/r0E6BO2ffxwz-Cga09iP7jDbzJxW8cae48WzWRdLoaxy9DUB4M1buLpPDBDnr5namO_DU3LF9fcInMc=w120-h120-l90-rj",
+          "views": ""
+        },
+        {
+          "id": "-3n0Po1zOqU",
+          "title": "Hey! Say! JUMP - Romeo & Juliet+ [Official Music Video]",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/-3n0Po1zOqU/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3lPPmjVSD0skmS2lyGWO8wvzWdKDw",
+          "views": ""
+        },
+        {
+          "id": "7dIDWELh0T0",
+          "title": "Hump Back - 拝啓、少年よ / THE FIRST TAKE",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/7dIDWELh0T0/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mDv85O3xNdei_a38BCrc9G1KY0Ew",
+          "views": ""
+        },
+        {
+          "id": "sIsWvrJQhMw",
+          "title": "Period",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/sIsWvrJQhMw/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3kyWwAZJoZI-HCg7iVscIuUjmDMLw",
+          "views": ""
+        },
+        {
+          "id": "RhgsdOoy6Tg",
+          "title": "ラブリーズン (short ver.) - Love Reason (short ver.)",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/RhgsdOoy6Tg/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3l4AnPU-KmrT4wIJBbWleIEx-5UNw",
+          "views": ""
+        },
+        {
+          "id": "N5QSESETuKE",
+          "title": "娑婆堕罵 -Shabadaba-",
+          "artist": "Unknown Artist",
+          "duration": "",
+          "durationSeconds": 0,
+          "thumbnail": "https://i.ytimg.com/vi/N5QSESETuKE/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3lhnswOTss_k5hI-5zVQqCgKsuuTA",
+          "views": ""
+        }
+      ],
+      "newReleases": [
+        {
+          "id": "MPREb_qI65o68cCfX",
+          "title": "Easygoing Music for a Morning Cafe Break",
+          "artist": "Relax α Wave",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/f6D-pv0XS2yg5aSWkr0tM_GD2uXWrHridgbczjEMVBsAa6SlPshJE2Tzio83tDT85pTsJ18sEgJy5cAf=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_Tpx40E7PNrC",
+          "title": "Jazz Time Begins with a Cup of Coffee",
+          "artist": "Eximo Blue",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/4nHFKebTTW2aoR3zzkqP_YIruWXWLQhEO13NSJAPJj7T7TQ1w5Ac8XHGAP4JPJdgQ0jiSpmSnBfcbPBG=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_uCNf8V2EQqd",
+          "title": "JESUS ETERNAMENTE",
+          "artist": "RAY",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/0Zt5Q9mxn2G949Pwy0H6UL9lAOuIVG88URN_VgEvt9uFZMN0f8wr6B0KfWeIrcqC_2EWZt7qonvFDrYJ=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_PMFFcpJuasw",
+          "title": "恋の面影、日本紀行～第一集～",
+          "artist": "優月みほ",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/-UpBAMar-pUyzaoJsKiJkT8rHIwVBzYlXb2NzOBGcsr5d3v7lj74I-2aQnpBJWXKk-_ozVwAOXV2TKc=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_jpNvp8QN6rf",
+          "title": "昭和名曲進化 III",
+          "artist": "かぐや48 かぐやスタジオ",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/5pOcw9VuxFUjA2D1LFH0nvSnZ4Tv1rL2ppYDF2-qlwD-SCYOyYJneEBTsPXQr59khrSoSnCou3S4DANw=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_z6Zjkam5Jsv",
+          "title": "Single Collection 3",
+          "artist": "Kouhei Fukuda",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/omT1Q9_YFQ3Uke9rv_whkMgnumzpNmnl3u5iQHZZOqPkkZjMK5Wm0i57POxIl2esotSYlJRj9bwgEG4=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_Qy2414O9821",
+          "title": "888",
+          "artist": "XAOSX",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/ZoWJCSZjTHaWRJHVebaCBtPRyDGgsEGTZ0ADsgQEOdWd1ymzf07QVHGd8eya4n-_ljnbGVhlvBf3f7NG=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_YelOjo4UynG",
+          "title": "MUSIC SUPPLEMENT 9",
+          "artist": "de~ku",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/RogziP1WC6ZAV14G7bYJLu2htWHOtXOelmuUxUO8hqdMWeEHo2FEm_hytMlkpAgdy2PuG0TX056k0mSh=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_phYW2K2rDFW",
+          "title": "ReaL",
+          "artist": "Soala",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/SANN55nwA0GjgroHYNSrOzqmzjNDdKOSmfWcO420DVfbO4w6I5xLtq1X34nwH_d_-WcZY-hyti_-DkaM=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_UHqbKBxkn0T",
+          "title": "I'm a challenger",
+          "artist": "SOL",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/jrNe6CFT9nd192Gu-wmQuspYIlfOfmw7sDrtVm5lT8yLc-qu2JdG0Fn_MmNt-G9CXk0Ub9V5G-U3nws=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_ZODnL4aSOpV",
+          "title": "Glow in the Snow",
+          "artist": "Bục Music",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/UoVhIYkIR4WmQZcAfbJxI4QwXUE9Em10Q3ylZbgxVigXxDj_whkZdYN8Xy6-QDIHEPQLW4f-XxlFMF1o=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_6ZYGXlQxGEQ",
+          "title": "Soft Armor",
+          "artist": "Solène",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/DCgp48aT9QqdX60dNRWBqn5Et5rwHoJ0IAbNIUC1Ncl6jc_VAk1xQp7xGOvs56xZdBPFXMSZ22sy8W0U=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_NPptpsZpkOY",
+          "title": "Symphonic Suite The Boy and the Heron for piano and orchestra",
+          "artist": "Joe Hisaishi",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/qClKSAJ9r8nfGWOWtanv31wJsHtEXRmtp4fegEWieZk_p__w3AruVfHkQYZFKABa9fcvx1Sd9ihHkqLs=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_ERw890CNDcN",
+          "title": "Three Millimeters to You",
+          "artist": "Leina",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/zuQ92YsxqBum_cAgXAkmCtoAtB71gw7zivY3yVRsWJdfJQf5BF9YSy0KNLp_ha44JMMMHEwK0fLFfD70ww=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_5qHogi2HE7p",
+          "title": "Hong Kong (feat. 王菲季候風)",
+          "artist": "The Weeknd",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/aDv_6aa5_03mJmrylOsch6oTUXKb1dKu4G8ieu50-2mtpEzR_wgDFS1qbKRRkg2i3gTvrTol2ea4D3vF=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_i3vwgiYfRF0",
+          "title": "Convertible",
+          "artist": "LUV TOWN",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/6au3qMPO9UWpEdWEfxjns376E60YaNxZKKl09iS_MyzVF9qZcynLiCwDmg40rjyODXQhCOb3r3wXmJM=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_dCyLnZcxIed",
+          "title": "The Rolling Thunder Revue 1976: Fort Worth Texas, May 16th",
+          "artist": "Bob Dylan",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/KpPrn2_4y32Q6n5c7sm6TcpjuCHNjgudqwcxMxZfjt4aeNi-fJS9wXq4MrHxqA3TW75_0fhonqdHd2he=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_2cHV1NAQ5UJ",
+          "title": "Kimi ni Nita Hito",
+          "artist": "yryon",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/iMwSUcItfmaibFAnrsjN9PS9LpHFXzjRGZRT5_QQPq9_x2sRc_Nf2iq8S5a-yWAI1LW_N-K7ZoXp4gqY=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_6Gv2GB8vHEw",
+          "title": "Cyclamen",
+          "artist": "STAR SEEED",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/vSGJSTJv1QcGNGziS8hGgM8JYZ9-YMDH6YvNqLRI1V30HJPRl5H-QOX-0Ok-MV__msJcTdTX9liY0f1XNQ=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_oN4HUs93mwD",
+          "title": "In This Flame (feat. RuRi-A)",
+          "artist": "Louis Vision",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/xCOcqtaKC_jcqL7cL86eHbL2iZ_g5K0jW4P-ebn-jgiqHkGni-9zm0HAv3EsTxP-smY2_AfPLyQvmEI=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_sWUhcI6gAOa",
+          "title": "Love Song Covers 5 - My White Days",
+          "artist": "Tomoyo Harada",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/lg4AzhcauV5iIB-MJB3H7aOJIEmZLI1Y3ogKy-9Mnf5vkaeQHZTHNnQ4wPwzWdeeiokGmMBJEIm4NlRSgw=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_zIBCuS9YkJC",
+          "title": "Pleasantly Haunted",
+          "artist": "Muse Petal",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/V0ep1fM4C9nusIMJt_L740lulaxKI6TwQL7jHXY00TdBqUxEbYSR2-4bIC7YEJS7vLepe3M7N6Knl-g=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_0C1tGiZQDyc",
+          "title": "moon",
+          "artist": "sunstar",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/VqafuFBkB4IL1eF1cHDbovkJtl7MhZL131tt71Ea74yqqNDUQKbDAVeR9ZB2NEWrtXgNRkXvDjOoUGuB=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPREb_2cAbYSqcD5J",
+          "title": "Dream Fatigue",
+          "artist": "Rex Orange County",
+          "year": "",
+          "type": "album",
+          "thumbnail": "https://yt3.googleusercontent.com/s2X5DYKoR3ROTz4EkECUows-YUy8tqonvAzNlK0QM6gsumMxKhUcWORYO6zii5_K11Mbqs9p4uadSo4vKQ=w544-h544-l90-rj"
+        },
+        {
+          "id": "MPEDW_K-6wGUH68",
+          "title": "🍁One November Kiss, A Love Forever ❤️ Il Sapore del Nostro Amore - A 1960s Italian Autumn Love Song",
+          "artist": "Riviera Vintage Music",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/W_K-6wGUH68/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3modrsh0GY9-BEudK2gDog5NUGliw"
+        },
+        {
+          "id": "JpB0UtlKG2Y",
+          "title": "เด๋อ - โจอี้ ภูวศิษฐ์ (JOEY PHUWASIT)「Official MV」",
+          "artist": "JOEY PHUWASIT",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/JpB0UtlKG2Y/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3lPw2_TKR8H5Q9iLnzrKS-lUvQFkw"
+        },
+        {
+          "id": "iDxeficK9Ac",
+          "title": "pupa",
+          "artist": "natori",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/iDxeficK9Ac/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3l0BcXWpjV8Kwiau-kRAdBc5kt9-w"
+        },
+        {
+          "id": "oC6brLXQe4I",
+          "title": "DESERVE",
+          "artist": "BABYMONSTER",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/oC6brLXQe4I/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3l8I7gvOC_g5FmM8kURXteBHEgM2g"
+        },
+        {
+          "id": "FhyByloD6bk",
+          "title": "PEDA DE VATOS Vol.10 - Elías Medina | (Video Oficial)",
+          "artist": "Elías Medina",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/FhyByloD6bk/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3mDx5IsdH105w8a1bCqRwu7ssbH7Q"
+        },
+        {
+          "id": "ASQsldYmf1M",
+          "title": "aiko-『あなたの花の色』 music video",
+          "artist": "aiko",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/ASQsldYmf1M/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3mdMmEgeMWpXaguYPvBqUn1vaE6Gw"
+        },
+        {
+          "id": "2rhLKnWCo6Y",
+          "title": "AIYOU - Eve Music Video",
+          "artist": "Eve",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/2rhLKnWCo6Y/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3l5jLmvlRQE3XfljJeLNIUpDoFuxA"
+        },
+        {
+          "id": "aaKWksy92JE",
+          "title": "PERFUME DOCE - Mc Joãozinho VT, Mc Dkzin, Kako, MC Jottak, Mc Duzinho SP, Mc Vine 7, Pe leal, Mc V7",
+          "artist": "MC Joãozinho VT",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/aaKWksy92JE/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3nEaVEU6f1zX0-6_lj4KKI4W8ccVg"
+        },
+        {
+          "id": "8aKR2Ho--5k",
+          "title": "GO HARD",
+          "artist": "MEOVV",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/8aKR2Ho--5k/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3k7UXtahvdzlzTHY49npVd0kdplUQ"
+        },
+        {
+          "id": "VQWt-O90vwk",
+          "title": "MONEY (feat. Artie 5ive)",
+          "artist": "Nemzzz",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/VQWt-O90vwk/sddefault.jpg?sqp=-oaymwEWCIAFEOgCIAQqCggAEIAFGDwgpANIWg&rs=AMzJL3kZ3WJXvaLRgu0d1KPuP9gYzAyb9g"
+        },
+        {
+          "id": "7xfJElLxiOw",
+          "title": "DESFILE BÉLICO",
+          "artist": "Pietro Zucaratto",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/7xfJElLxiOw/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3ncRGoq68Bhne3C2bMKK-4jZaLTow"
+        },
+        {
+          "id": "vnzuVECDD_E",
+          "title": "初音 - Hatsune (feat. Hatsune Miku & IA)",
+          "artist": "Unreal Vision",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/vnzuVECDD_E/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3k8s51hUJzPi9DRLUdW-EcMg751MA"
+        },
+        {
+          "id": "MPEDr2zeGsUOSuw",
+          "title": "Vini - Black Aura (Afro House Keinemusik Extended Mix)",
+          "artist": "DJ Vini",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/r2zeGsUOSuw/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3mxdENL_xdJ9HuDRFRMK6BpQuu5fg"
+        },
+        {
+          "id": "-5ZXrO_lYSA",
+          "title": "Tarantino (Official Music Video)",
+          "artist": "LISA",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/-5ZXrO_lYSA/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3krwAl_XORdDcu3eIfO5ohBy8m-kw"
+        },
+        {
+          "id": "VdHDj-sdS9c",
+          "title": "Se Dará",
+          "artist": "Jhex",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/VdHDj-sdS9c/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3nlHmpp3OQtWUVimSJDiQj1xNCo2Q"
+        },
+        {
+          "id": "smFp0sksH84",
+          "title": "SPIN",
+          "artist": "Kroi",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/smFp0sksH84/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3kW76_FFOkozJ8kpU6BT8IPE2FinQ"
+        },
+        {
+          "id": "gMWW4zJhfA8",
+          "title": "Cartier Remix",
+          "artist": "El Americano 4KT",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/gMWW4zJhfA8/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3mn2LsVprKkpiX18qAagHDj2UESYA"
+        },
+        {
+          "id": "gsZauX8gwxo",
+          "title": "expectations (feat. Chappell Roan) (Official Music Video)",
+          "artist": "Olivia Rodrigo",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/gsZauX8gwxo/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3nt-eMZWnGR-qoyfGbyXHl67rUw-w"
+        },
+        {
+          "id": "zq9B35oai2w",
+          "title": "共犯 - Kyohan",
+          "artist": "Mrs. GREEN APPLE",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/zq9B35oai2w/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3nOvOAWoG1HDnaBwQNmPVo8kb4azQ"
+        },
+        {
+          "id": "m9nuIYmKens",
+          "title": "Defensor",
+          "artist": "Lirios",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/m9nuIYmKens/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3kjh2nn6zI7PUPUF_-vyEuKpA9abg"
+        },
+        {
+          "id": "da88-tCYSqg",
+          "title": "Eri solo da incontrare",
+          "artist": "Alfa",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/da88-tCYSqg/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3lfxdEF_9zVEVGmRmaCNnfdY2J-og"
+        },
+        {
+          "id": "Bix7-SashJM",
+          "title": "LEGEND",
+          "artist": "CHANMINA",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/Bix7-SashJM/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3kO6UkmpE1NXpmoYsHp8X7dakWdfg"
+        },
+        {
+          "id": "k8SP7SrLTvc",
+          "title": "ありふれた世界の果てに - FOR OKINAWA (feat. Awich, Paledusk, CHICO CARLITO & ONE OK ROCK)",
+          "artist": "YAO",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/k8SP7SrLTvc/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3m_gRmwKhLgKz2bnQ8P27fx37Aqig"
+        },
+        {
+          "id": "tAOPAaEVWDQ",
+          "title": "Lacoste África 3 (feat. Love Funk, MC GP & MC IG)",
+          "artist": "MC Cebezinho",
+          "year": "",
+          "type": "video",
+          "thumbnail": "https://i.ytimg.com/vi/tAOPAaEVWDQ/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3lNDo3HRTmAwiXZjGgwRQWoQRXsEw"
+        }
+      ],
+      "moodsAndGenres": [
+        {
+          "title": "Chill",
+          "params": "ggMPOg1uX1JOQWZFeDByc2Jm"
+        },
+        {
+          "title": "Commute",
+          "params": "ggMPOg1uX044Z2o5WERLckpU"
+        },
+        {
+          "title": "Energize",
+          "params": "ggMPOg1uX2lRZUZiMnNrQnJW"
+        },
+        {
+          "title": "Feel good",
+          "params": "ggMPOg1uXzZQbDB5eThLRTQ3"
+        },
+        {
+          "title": "Focus",
+          "params": "ggMPOg1uX2xJWmRGUGJpUnBp"
+        },
+        {
+          "title": "Gaming",
+          "params": "ggMPOg1uX3NmUVV4Vzl3WGQ0"
+        },
+        {
+          "title": "Party",
+          "params": "ggMPOg1uX2w1aW1CRDFTSUNo"
+        },
+        {
+          "title": "Romance",
+          "params": "ggMPOg1uX1JCQnB2QXVYVEIz"
+        },
+        {
+          "title": "Sad",
+          "params": "ggMPOg1uX3NISTh4UmtWcFgz"
+        },
+        {
+          "title": "Sleep",
+          "params": "ggMPOg1uX1MxaFQ3Z0JMZkN4"
+        },
+        {
+          "title": "Workout",
+          "params": "ggMPOg1uXzIxYkNac21YZ2Z0"
+        },
+        {
+          "title": "African",
+          "params": "ggMPOg1uX0UzWGxlRE5jMDVk"
+        },
+        {
+          "title": "Anime & soundtracks",
+          "params": "ggMPOg1uXzZNMEtaZDE1TXZM"
+        },
+        {
+          "title": "Arabic",
+          "params": "ggMPOg1uX3VOQWxsblVZTFNE"
+        },
+        {
+          "title": "Blues",
+          "params": "ggMPOg1uX2NXUkgxdW0zUHJp"
+        },
+        {
+          "title": "Bollywood & Indian",
+          "params": "ggMPOg1uX0JrcUJGUHhxaTFV"
+        }
+      ],
+      "musicVideos": [],
+      "oriconRanking": [
+        {
+          "id": "mGFi9UnCjCE",
+          "rank": 1,
+          "title": "Yes! 東京 (feat.超特急 / M!LK / SUPER★DRAGON / Sakurashimeji / ONE N' ONLY / 原因は自分にある。 / BUDDiiS / ICEx / Lienel)",
+          "artist": "EBiDAN (恵比寿学園男子部)",
+          "metric": "再生数：7,844,907回",
+          "thumbnail": "https://yt3.googleusercontent.com/pi5QDwxz6w2nNShQqq_Hfgz17GISa97pP7pNbc7EwjBbkD1SF4L3uaHfarQT--6nnqPO0LmumW1YuBv0=w120-h120-l90-rj",
+          "duration": "3:41",
+          "durationSeconds": 221,
+          "rankType": "streaming"
+        },
+        {
+          "id": "Xay0HJ4LsNc",
+          "rank": 2,
+          "title": "しわあわせ",
+          "artist": "Vaundy",
+          "metric": "再生数：7,764,849回",
+          "thumbnail": "https://yt3.googleusercontent.com/pYNfOjHHfaINeMxgblPBaHPqz8GLCuD9mkxpUqfdeDsMj2YUoWDO3oYUggUnayW9V8CY0YWOYWoC6QA=w120-h120-l90-rj",
+          "duration": "4:39",
+          "durationSeconds": 279,
+          "rankType": "streaming"
+        },
+        {
+          "id": "bafSniJZQtk",
+          "rank": 3,
+          "title": "ラブリーズン",
+          "artist": "原因は自分にある。",
+          "metric": "再生数：7,541,059回",
+          "thumbnail": "https://yt3.googleusercontent.com/D1zJfREknxR921op4CDIk7mszH_gEfZ2dzO68-Qo79Q3kw4vpN575nNRrA5t65iy_rsuJbC-8Kde5j3hFA=w120-h120-l90-rj",
+          "duration": "3:40",
+          "durationSeconds": 220,
+          "rankType": "streaming"
+        },
+        {
+          "id": "HdjrIrRDhic",
+          "rank": 4,
+          "title": "結び",
+          "artist": "Ayumu Imazu",
+          "metric": "再生数：7,476,502回",
+          "thumbnail": "https://yt3.googleusercontent.com/soKqpUQ52RruKvtG4iuNO8v9JjozLGVLiyaypqW-3B3pfUwC3gVb7lP_ioVuOBAzMarPJ22vgLaQfhA=w120-h120-l90-rj",
+          "duration": "3:27",
+          "durationSeconds": 207,
+          "rankType": "streaming"
+        },
+        {
+          "id": "fE6_K8o0jhI",
+          "rank": 5,
+          "title": "ザッツ!超常",
+          "artist": "M!LK",
+          "metric": "再生数：6,581,154回",
+          "thumbnail": "https://yt3.googleusercontent.com/gQi4ySlHLsGn2GiikxdWUyjxcLPTBP052vcGBgEpGE7zHuh_NsVn6OTeq_6xPdoKXn2u07-ythg4fvqn=w120-h120-l90-rj",
+          "duration": "3:26",
+          "durationSeconds": 206,
+          "rankType": "streaming"
+        },
+        {
+          "id": "FTKQXxMuJaQ",
+          "rank": 6,
+          "title": "NOW U KNOW",
+          "artist": "BE:FIRST",
+          "metric": "再生数：6,276,372回",
+          "thumbnail": "https://yt3.googleusercontent.com/4CAVoylnMp7cENxdDUcU8LiaJiryy2HNCzbHS5n2YapFZ27KgtU8mOlf3RXbPapSl-VanIDN7OxSgkI=w120-h120-l90-rj",
+          "duration": "2:59",
+          "durationSeconds": 179,
+          "rankType": "streaming"
+        },
+        {
+          "id": "sFdZhI3CMhs",
+          "rank": 7,
+          "title": "Surprise Box",
+          "artist": "めいちゃん",
+          "metric": "再生数：6,242,767回",
+          "thumbnail": "https://yt3.googleusercontent.com/g6yPmNs4khWxjfS2OlXk_eJjdhSKjRBQ2AUbLHMNNaCSGmKUdb7XBMHN0Dd_O20COdRLA9-reVwFeXw=w120-h120-l90-rj",
+          "duration": "4:03",
+          "durationSeconds": 243,
+          "rankType": "streaming"
+        },
+        {
+          "id": "UF2rHapYjK4",
+          "rank": 8,
+          "title": "ありふれた世界の果てに (feat. Awich, CHICO CARLITO, ONE OK ROCK & Paledusk)",
+          "artist": "YAO",
+          "metric": "再生数：5,061,097回",
+          "thumbnail": "https://yt3.googleusercontent.com/3WkYPuESPl5D5CEelsEihKjOqAxVrBUYV9BwpKuUrQbCRITrUezDmg8K6WP8HYg7BxQaxmurzbGG90UWoQ=w120-h120-l90-rj",
+          "duration": "3:55",
+          "durationSeconds": 235,
+          "rankType": "streaming"
+        },
+        {
+          "id": "14cxcH1eiPc",
+          "rank": 9,
+          "title": "好きすぎて滅!",
+          "artist": "M!LK",
+          "metric": "再生数：5,060,818回",
+          "thumbnail": "https://yt3.googleusercontent.com/EsTVxZWnPqCU5oalIs492UmiVQLsg66BhJsmIPVXRboF6wUkiQpTpVV8VThBDxp7Myx9E7JfWixyS7j8jw=w120-h120-l90-rj",
+          "duration": "3:33",
+          "durationSeconds": 213,
+          "rankType": "streaming"
+        },
+        {
+          "id": "xSFW08JrHVo",
+          "rank": 10,
+          "title": "Brand New",
+          "artist": "Mrs. GREEN APPLE",
+          "metric": "再生数：4,741,037回",
+          "thumbnail": "https://yt3.googleusercontent.com/CF7T3iQDMhrwvVk3MRWr2_HFNGyTfSC5i8UcveS0Jdhm1rUD1tTHq8oOYw4D2ck22eiM6K9JL2uYMTY=w120-h120-l90-rj",
+          "duration": "3:32",
+          "durationSeconds": 212,
+          "rankType": "streaming"
+        }
+      ],
+      "oriconDigital": [
+        {
+          "id": "FTKQXxMuJaQ",
+          "rank": 1,
+          "title": "NOW U KNOW",
+          "artist": "BE:FIRST",
+          "metric": "ダウンロード数：17,266DL",
+          "thumbnail": "https://yt3.googleusercontent.com/4CAVoylnMp7cENxdDUcU8LiaJiryy2HNCzbHS5n2YapFZ27KgtU8mOlf3RXbPapSl-VanIDN7OxSgkI=w120-h120-l90-rj",
+          "duration": "2:59",
+          "durationSeconds": 179,
+          "rankType": "digital"
+        },
+        {
+          "id": "JIzJxsk4tw8",
+          "rank": 2,
+          "title": "いけても無理でも",
+          "artist": "新しい地図 join ミュージック",
+          "metric": "ダウンロード数：4,961DL",
+          "thumbnail": "https://yt3.googleusercontent.com/ekNGvThooyv1q2uWTHwfvQGLokg8Bp-qMAjXPJDGNwP9Jy_dzKwcC7CeLwUYsIGqjvn3xKIqujT7Fcxo=w120-h120-l90-rj",
+          "duration": "3:51",
+          "durationSeconds": 231,
+          "rankType": "digital"
+        },
+        {
+          "id": "XoxFd8Z3DUg",
+          "rank": 3,
+          "title": "咲き誇れ",
+          "artist": "YOASOBI",
+          "metric": "ダウンロード数：4,940DL",
+          "thumbnail": "https://yt3.googleusercontent.com/wGI8EDwc94Afkg8O9VmJu3BAveMq_SK65nfB2nWskpnZ8YnOF-M4_ek_fTAqoPIWANDefVSLnyVkeqGB=w120-h120-l90-rj",
+          "duration": "4:07",
+          "durationSeconds": 247,
+          "rankType": "digital"
+        },
+        {
+          "id": "t1y3x1LgZgs",
+          "rank": 4,
+          "title": "ダイヤモンドカット",
+          "artist": "新しい地図 join ミュージック",
+          "metric": "ダウンロード数：4,882DL",
+          "thumbnail": "https://yt3.googleusercontent.com/6GpQnGZx36p0B3FipJEt97LyFncZj1QXLVLtwmjvnDHLvOYG94THAJksn99mWx3OxaCJcwTjtt_79Lp4=w120-h120-l90-rj",
+          "duration": "4:34",
+          "durationSeconds": 274,
+          "rankType": "digital"
+        },
+        {
+          "id": "GdsmUAvzzAo",
+          "rank": 5,
+          "title": "One Shot (『仮面ライダーマイス』主題歌)",
+          "artist": "THE RAMPAGE from EXILE TRIBE",
+          "metric": "ダウンロード数：4,098DL",
+          "thumbnail": "https://yt3.googleusercontent.com/ryfoXp2H9jt7J0qUW4eaOxqF46ncc0-aDDd0YDqFi8uOzZaxLHCbSEJkEfWGLELWeaOVeNBvw3pahC7F-Q=w120-h120-l90-rj",
+          "duration": "2:50",
+          "durationSeconds": 170,
+          "rankType": "digital"
+        },
+        {
+          "id": "fE6_K8o0jhI",
+          "rank": 6,
+          "title": "ザッツ!超常",
+          "artist": "M!LK",
+          "metric": "ダウンロード数：3,162DL",
+          "thumbnail": "https://yt3.googleusercontent.com/gQi4ySlHLsGn2GiikxdWUyjxcLPTBP052vcGBgEpGE7zHuh_NsVn6OTeq_6xPdoKXn2u07-ythg4fvqn=w120-h120-l90-rj",
+          "duration": "3:26",
+          "durationSeconds": 206,
+          "rankType": "digital"
+        },
+        {
+          "id": "9usQE6QaH5k",
+          "rank": 7,
+          "title": "キツネノボタン",
+          "artist": "スピッツ",
+          "metric": "ダウンロード数：2,898DL",
+          "thumbnail": "https://yt3.googleusercontent.com/WqhlyXmhowZC-xX4uW7IqGP_3KAI7-Tut7JKu8cd6v0UvvYgh1GKq_JEDjaLtNmcM8ToJqgrFWSK1k7w=w120-h120-l90-rj",
+          "duration": "4:12",
+          "durationSeconds": 252,
+          "rankType": "digital"
+        },
+        {
+          "id": "q0OGymI3LMs",
+          "rank": 8,
+          "title": "シンカ",
+          "artist": "Ado",
+          "metric": "ダウンロード数：2,705DL",
+          "thumbnail": "https://yt3.googleusercontent.com/Pdcv_XDxPZgHYPKmi9MlFT5vLn3fmjCMlB8bUjwnhDJ0Kr0YFeYHPqpNaQRKC40MwVaTX3PASbuJGjM=w120-h120-l90-rj",
+          "duration": "3:20",
+          "durationSeconds": 200,
+          "rankType": "digital"
+        },
+        {
+          "id": "YImYMQpNjqc",
+          "rank": 9,
+          "title": "雲を抜け風下へ私だけ",
+          "artist": "ヨルシカ",
+          "metric": "ダウンロード数：2,701DL",
+          "thumbnail": "https://yt3.googleusercontent.com/C1PMq9YQyV4QPvJ_W4yo8xafzlF0gxC3jeZ2NNnQk-hX0MpBoSCAzy5nksdcgbzcXztvy1A9yt8QKgja=w120-h120-l90-rj",
+          "duration": "3:59",
+          "durationSeconds": 239,
+          "rankType": "digital"
+        },
+        {
+          "id": "IocKOiQR6qo",
+          "rank": 10,
+          "title": "爆裂愛しすぎて滅! (Crazy Mashup by TeddyLoid)",
+          "artist": "M!LK",
+          "metric": "ダウンロード数：2,674DL",
+          "thumbnail": "https://yt3.googleusercontent.com/ndxiSEITqT3JUzcj5V8gaNbsHF3DYIIFib6nGidX01vDKYXyZHVL5Y8X04VKIHa6r-MHO5LmsWSd6Qb2=w120-h120-l90-rj",
+          "duration": "3:54",
+          "durationSeconds": 234,
+          "rankType": "digital"
+        }
+      ]
+    },
+    "createdAt": 1794473263186,
+    "expiresAt": 1794480463186
+  },
+  "album_detail_MPREb_QCAGO0Lbeum": {
+    "value": {
+      "header": {
+        "id": "MPREb_QCAGO0Lbeum",
+        "title": "Editorial",
+        "artist": "Official HIGE DANdism",
+        "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+        "year": "2021",
+        "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj",
+        "trackCount": 14
+      },
+      "tracks": [
+        {
+          "index": 1,
+          "id": "mN3MEypzw2A",
+          "title": "Editorial",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "2:15",
+          "durationSeconds": 135,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 2,
+          "id": "PZX2npwj6jY",
+          "title": "アポトーシス - Apoptosis",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "6:30",
+          "durationSeconds": 390,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 3,
+          "id": "bt8wNQJaKAk",
+          "title": "I Love...",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "4:43",
+          "durationSeconds": 283,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 4,
+          "id": "R9XE1n46ucM",
+          "title": "フィラメント - Filament",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "4:05",
+          "durationSeconds": 245,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 5,
+          "id": "p1qM75a9FeE",
+          "title": "Hello",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "4:43",
+          "durationSeconds": 283,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 6,
+          "id": "O1bhZgkC4Gw",
+          "title": "Cry Baby",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "4:02",
+          "durationSeconds": 242,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 7,
+          "id": "MCZoio4dBB4",
+          "title": "Shower",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "5:41",
+          "durationSeconds": 341,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 8,
+          "id": "SICzNfWhgn8",
+          "title": "みどりの雨避け - Midori no Amayoke",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "3:59",
+          "durationSeconds": 239,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 9,
+          "id": "pkoxFpmiCWo",
+          "title": "パラボラ - Parabola",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "5:06",
+          "durationSeconds": 306,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 10,
+          "id": "4BVd6TK8_EQ",
+          "title": "ペンディング・マシーン - Pending Machine",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "3:56",
+          "durationSeconds": 236,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 11,
+          "id": "l_HTf8JRTts",
+          "title": "Bedroom Talk",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "3:22",
+          "durationSeconds": 202,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 12,
+          "id": "kff_DXor7jc",
+          "title": "Laughter",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "5:53",
+          "durationSeconds": 353,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 13,
+          "id": "6lnS-8FVod4",
+          "title": "Universe",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "4:46",
+          "durationSeconds": 286,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        },
+        {
+          "index": 14,
+          "id": "vqeeMwQLvME",
+          "title": "Lost In My Room",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Editorial",
+          "albumId": "MPREb_QCAGO0Lbeum",
+          "duration": "4:31",
+          "durationSeconds": 271,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj"
+        }
+      ]
+    },
+    "createdAt": 1794473296651,
+    "expiresAt": 1794559696651
+  },
+  "album_detail_MPREb_lvUlrlxInIt": {
+    "value": {
+      "header": {
+        "id": "MPREb_lvUlrlxInIt",
+        "title": "Love To Peace Ha Kimi No Naka",
+        "artist": "Official hige dandism",
+        "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+        "year": "2016",
+        "thumbnail": "https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGKxrwXYUv5tT1TaD8lHS-mE69Gr-phnIxMEKQI=w544-h544-l90-rj",
+        "trackCount": 8
+      },
+      "tracks": [
+        {
+          "index": 1,
+          "id": "qrtKLNTB71c",
+          "title": "SWEET TWEET",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Love To Peace Ha Kimi No Naka",
+          "albumId": "MPREb_lvUlrlxInIt",
+          "duration": "4:56",
+          "durationSeconds": 296,
+          "thumbnail": "https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGKxrwXYUv5tT1TaD8lHS-mE69Gr-phnIxMEKQI=w544-h544-l90-rj"
+        },
+        {
+          "index": 2,
+          "id": "n0e0y01w92A",
+          "title": "恋の前ならえ - Koi No Mae Narae",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Love To Peace Ha Kimi No Naka",
+          "albumId": "MPREb_lvUlrlxInIt",
+          "duration": "3:30",
+          "durationSeconds": 210,
+          "thumbnail": "https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGKxrwXYUv5tT1TaD8lHS-mE69Gr-phnIxMEKQI=w544-h544-l90-rj"
+        },
+        {
+          "index": 3,
+          "id": "Qi_n6KHDklU",
+          "title": "夕暮れ沿い - Yuugure Zoi",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Love To Peace Ha Kimi No Naka",
+          "albumId": "MPREb_lvUlrlxInIt",
+          "duration": "4:07",
+          "durationSeconds": 247,
+          "thumbnail": "https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGKxrwXYUv5tT1TaD8lHS-mE69Gr-phnIxMEKQI=w544-h544-l90-rj"
+        },
+        {
+          "index": 4,
+          "id": "3MPrtzPA-t8",
+          "title": "雪急く朝が来る - Yuki Seku Asa Ga Kuru",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Love To Peace Ha Kimi No Naka",
+          "albumId": "MPREb_lvUlrlxInIt",
+          "duration": "3:18",
+          "durationSeconds": 198,
+          "thumbnail": "https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGKxrwXYUv5tT1TaD8lHS-mE69Gr-phnIxMEKQI=w544-h544-l90-rj"
+        },
+        {
+          "index": 5,
+          "id": "0M-6ImZ9FSk",
+          "title": "始発が導く幸福論 - Shihatsu Ga Michibiku Kouhukuron",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Love To Peace Ha Kimi No Naka",
+          "albumId": "MPREb_lvUlrlxInIt",
+          "duration": "4:59",
+          "durationSeconds": 299,
+          "thumbnail": "https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGKxrwXYUv5tT1TaD8lHS-mE69Gr-phnIxMEKQI=w544-h544-l90-rj"
+        },
+        {
+          "index": 6,
+          "id": "i68HdrqOPcE",
+          "title": "愛なんだが… - Ai Nandaga",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Love To Peace Ha Kimi No Naka",
+          "albumId": "MPREb_lvUlrlxInIt",
+          "duration": "4:19",
+          "durationSeconds": 259,
+          "thumbnail": "https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGKxrwXYUv5tT1TaD8lHS-mE69Gr-phnIxMEKQI=w544-h544-l90-rj"
+        },
+        {
+          "index": 7,
+          "id": "a5l03rLNox8",
+          "title": "parade",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Love To Peace Ha Kimi No Naka",
+          "albumId": "MPREb_lvUlrlxInIt",
+          "duration": "4:41",
+          "durationSeconds": 281,
+          "thumbnail": "https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGKxrwXYUv5tT1TaD8lHS-mE69Gr-phnIxMEKQI=w544-h544-l90-rj"
+        },
+        {
+          "index": 8,
+          "id": "n69i0b3k8Oo",
+          "title": "ダーリン。 - Darling",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Love To Peace Ha Kimi No Naka",
+          "albumId": "MPREb_lvUlrlxInIt",
+          "duration": "5:15",
+          "durationSeconds": 315,
+          "thumbnail": "https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGKxrwXYUv5tT1TaD8lHS-mE69Gr-phnIxMEKQI=w544-h544-l90-rj"
+        }
+      ]
+    },
+    "createdAt": 1794473305454,
+    "expiresAt": 1794559705454
+  },
+  "album_detail_MPREb_9XoC3Flm4Rv": {
+    "value": {
+      "header": {
+        "id": "MPREb_9XoC3Flm4Rv",
+        "title": "Traveler",
+        "artist": "Official Hige Dandism",
+        "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+        "year": "2019",
+        "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj",
+        "trackCount": 14
+      },
+      "tracks": [
+        {
+          "index": 1,
+          "id": "xtFAmapbTbY",
+          "title": "イエスタデイ - Yesterday",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "5:00",
+          "durationSeconds": 300,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 2,
+          "id": "-kgOFJG881I",
+          "title": "宿命 - Shukumei",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "4:41",
+          "durationSeconds": 281,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 3,
+          "id": "iLHkP2kdk1g",
+          "title": "Amazing",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "3:52",
+          "durationSeconds": 232,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 4,
+          "id": "sHnUEWvSCDs",
+          "title": "Rowan",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "4:45",
+          "durationSeconds": 285,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 5,
+          "id": "0mN5jaB9wq0",
+          "title": "バッドフォーミー - Bad for Me",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "3:56",
+          "durationSeconds": 236,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 6,
+          "id": "mvhf0R2NW70",
+          "title": "最後の恋煩い - Saigo no Koiwazurai",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "4:34",
+          "durationSeconds": 274,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 7,
+          "id": "cMLTX2FClxw",
+          "title": "ビンテージ - Vintage",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "4:13",
+          "durationSeconds": 253,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 8,
+          "id": "22mOCjkwQjM",
+          "title": "Stand By You",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "4:17",
+          "durationSeconds": 257,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 9,
+          "id": "sem3UU-EQJs",
+          "title": "Fire Ground",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "3:44",
+          "durationSeconds": 224,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 10,
+          "id": "uXMsI4yTSeM",
+          "title": "旅は道連れ - Tabi wa Michizure",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "3:16",
+          "durationSeconds": 196,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 11,
+          "id": "vZNtTLW_6Hk",
+          "title": "052519",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "0:11",
+          "durationSeconds": 11,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 12,
+          "id": "TQ8WlA2GXbk",
+          "title": "Pretender",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "5:27",
+          "durationSeconds": 327,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 13,
+          "id": "0Ac1TwKuwCQ",
+          "title": "ラストソング - Last Song",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "5:54",
+          "durationSeconds": 354,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        },
+        {
+          "index": 14,
+          "id": "x7VAva4vIbk",
+          "title": "Travelers",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Traveler",
+          "albumId": "MPREb_9XoC3Flm4Rv",
+          "duration": "1:47",
+          "durationSeconds": 107,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w544-h544-l90-rj"
+        }
+      ]
+    },
+    "createdAt": 1794473305671,
+    "expiresAt": 1794559705671
+  },
+  "album_detail_VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr": {
+    "value": {
+      "header": {
+        "id": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+        "title": "Official髭男dism 落ち着く系バラード",
+        "artist": "Official髭男dism",
+        "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+        "year": "",
+        "thumbnail": "https://yt3.googleusercontent.com/_QkISoahOqF00bUAvG3XhY1zWTBI_IDWtDP2NN9waMIh64ehHX2V5BTE7tb-77zslEr_B_2zHw=s1200",
+        "trackCount": 21
+      },
+      "tracks": [
+        {
+          "index": 1,
+          "id": "msFjrYvsBsA",
+          "title": "B-Side Blues",
+          "artist": "OFFICIAL HIGE DANDISM",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "4:56",
+          "durationSeconds": 296,
+          "thumbnail": "https://yt3.googleusercontent.com/_lT3SfLcRVPcdzYToxBn0zSW_eqUMwTky_bxTNAfUz4Ci1t4PguZAzIHGGqNWF05My7UWIjjZs2UNF7A=w120-h120-l90-rj"
+        },
+        {
+          "index": 2,
+          "id": "TEKR7K7LbHw",
+          "title": "破顔 - Hagan",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "4:42",
+          "durationSeconds": 282,
+          "thumbnail": "https://yt3.googleusercontent.com/sHzfH8LR7ybsBpPCxF8h2wQYQc5Lj1ki_X5Uc7DpK19lUBMTKX0QrEiVKuEXuBBolpnBL_gfmln6Mhqp=w120-h120-l90-rj"
+        },
+        {
+          "index": 3,
+          "id": "l_HTf8JRTts",
+          "title": "Official髭男dism - Bedroom Talk［Official Lyric Video］",
+          "artist": "Official髭男dism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "3:20",
+          "durationSeconds": 200,
+          "thumbnail": "https://i.ytimg.com/vi/l_HTf8JRTts/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mevNTA-SYVa026D2Qor8bM7UBHWg"
+        },
+        {
+          "index": 4,
+          "id": "PZX2npwj6jY",
+          "title": "Official髭男dism - アポトーシス［Official Video］",
+          "artist": "Official髭男dism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "6:27",
+          "durationSeconds": 387,
+          "thumbnail": "https://i.ytimg.com/vi/PZX2npwj6jY/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3lRIjX783hcN6dWAc0DsJr1JrFpIQ"
+        },
+        {
+          "index": 5,
+          "id": "MCZoio4dBB4",
+          "title": "Shower",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "5:41",
+          "durationSeconds": 341,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w120-h120-s-l90-rj"
+        },
+        {
+          "index": 6,
+          "id": "vqeeMwQLvME",
+          "title": "Lost In My Room",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "4:31",
+          "durationSeconds": 271,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w120-h120-s-l90-rj"
+        },
+        {
+          "index": 7,
+          "id": "SICzNfWhgn8",
+          "title": "みどりの雨避け - Midori no Amayoke",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "3:59",
+          "durationSeconds": 239,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w120-h120-s-l90-rj"
+        },
+        {
+          "index": 8,
+          "id": "mN3MEypzw2A",
+          "title": "Editorial",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "2:15",
+          "durationSeconds": 135,
+          "thumbnail": "https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w120-h120-s-l90-rj"
+        },
+        {
+          "index": 9,
+          "id": "7XfIfRcx2v4",
+          "title": "夏模様の猫 - Natsumoyo no Neko",
+          "artist": "Official HIGE DANdism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "2:13",
+          "durationSeconds": 133,
+          "thumbnail": "https://yt3.googleusercontent.com/sI7_9lx2mav0Fod45Qf1RTMvqZJJbjOFbV7jnSunl4Vrh8Ept83YL7C4QMyd5njAafv5WmuR-R7CPZX0-Q=w120-h120-l90-rj"
+        },
+        {
+          "index": 10,
+          "id": "kff_DXor7jc",
+          "title": "Official髭男dism - Laughter［Official Video］",
+          "artist": "Official髭男dism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "6:20",
+          "durationSeconds": 380,
+          "thumbnail": "https://i.ytimg.com/vi/kff_DXor7jc/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3kcSRWUiP7JoyfLDgbsvZBtgTXY0g"
+        },
+        {
+          "index": 11,
+          "id": "cMLTX2FClxw",
+          "title": "Official髭男dism - ビンテージ［Official Video］",
+          "artist": "Official髭男dism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "4:38",
+          "durationSeconds": 278,
+          "thumbnail": "https://i.ytimg.com/vi/cMLTX2FClxw/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3lQHlpCoZUsGDZMi-egEjN84lul-g"
+        },
+        {
+          "index": 12,
+          "id": "0Ac1TwKuwCQ",
+          "title": "ラストソング - Last Song",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "5:54",
+          "durationSeconds": 354,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w120-h120-l90-rj"
+        },
+        {
+          "index": 13,
+          "id": "x7VAva4vIbk",
+          "title": "Travelers",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "1:47",
+          "durationSeconds": 107,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w120-h120-l90-rj"
+        },
+        {
+          "index": 14,
+          "id": "sHnUEWvSCDs",
+          "title": "Rowan",
+          "artist": "Official Hige Dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "4:45",
+          "durationSeconds": 285,
+          "thumbnail": "https://yt3.googleusercontent.com/D0He9E2VSSqj-0waH0t1jHhaG4NBM3UAn32JsHmOBoO5WN1uhRbF9Z493ShfBAhiaErtO7L2g3CrdkQ=w120-h120-l90-rj"
+        },
+        {
+          "index": 15,
+          "id": "FvkkN1eE1gg",
+          "title": "ニットの帽子 - Nittonoboushi",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "4:25",
+          "durationSeconds": 265,
+          "thumbnail": "https://yt3.googleusercontent.com/ht0Sx8rSlphwJ1t796h_XopU92BjiEmXo0sV8yvwknJjAgDW0CRQExBNuqHc_Eo11liv61YbRjNMn2zY=w120-h120-l90-rj"
+        },
+        {
+          "index": 16,
+          "id": "Q0KH788Qn34",
+          "title": "イコール - equal",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "5:21",
+          "durationSeconds": 321,
+          "thumbnail": "https://yt3.googleusercontent.com/XLQus3qol8pPLwuKkaAq6-QKs1lPH17QeJaoqupluaShpEDnYtmDbZ0-e5xr7-qHUQjD5ej3bb3gtF4=w120-h120-s-l90-rj"
+        },
+        {
+          "index": 17,
+          "id": "T03DjDwcZb8",
+          "title": "Trailer",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "3:58",
+          "durationSeconds": 238,
+          "thumbnail": "https://yt3.googleusercontent.com/XLQus3qol8pPLwuKkaAq6-QKs1lPH17QeJaoqupluaShpEDnYtmDbZ0-e5xr7-qHUQjD5ej3bb3gtF4=w120-h120-s-l90-rj"
+        },
+        {
+          "index": 18,
+          "id": "ME_ZU0ME4vQ",
+          "title": "ゼロのままでいられたら - Zero no mamade iraretara",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "5:26",
+          "durationSeconds": 326,
+          "thumbnail": "https://yt3.googleusercontent.com/H1ZIqxKiFEWcbSg5x_5pDXmyyJiEhBw4qEUmiUkIA9_wZ_wdAjni5Y6fDXbFOsNxeoIR6SxIipiFDhu2=w120-h120-l90-rj"
+        },
+        {
+          "index": 19,
+          "id": "N_Fu6b-CC7g",
+          "title": "されど日々は - Saredo hibiha",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "4:35",
+          "durationSeconds": 275,
+          "thumbnail": "https://yt3.googleusercontent.com/u-fn9CV7q-hRd8C1HDtZaXO1_ALKhP6PnpduWucUEtt36BLBd7tGf6LWut7sEXSyOt5sjWXiOn2DZi2J=w120-h120-l90-rj"
+        },
+        {
+          "index": 20,
+          "id": "-gnY6HeAOYQ",
+          "title": "相思相愛 - Sousisouai",
+          "artist": "Official hige dandism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "5:53",
+          "durationSeconds": 353,
+          "thumbnail": "https://yt3.googleusercontent.com/u-fn9CV7q-hRd8C1HDtZaXO1_ALKhP6PnpduWucUEtt36BLBd7tGf6LWut7sEXSyOt5sjWXiOn2DZi2J=w120-h120-l90-rj"
+        },
+        {
+          "index": 21,
+          "id": "0nzgi6dz8VY",
+          "title": "Official髭男dism - LADY［Official Video］",
+          "artist": "Official髭男dism",
+          "artistId": "UC84Rm0a3gimYXPtqp5O_JRw",
+          "album": "Official髭男dism 落ち着く系バラード",
+          "albumId": "VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr",
+          "duration": "4:45",
+          "durationSeconds": 285,
+          "thumbnail": "https://i.ytimg.com/vi/0nzgi6dz8VY/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3maCAMh71bCAB-235TQ_IV4l3Mzug"
+        }
+      ]
+    },
+    "createdAt": 1794473395071,
+    "expiresAt": 1794559795071
+  }
+}

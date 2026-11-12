@@ -1,5 +1,5 @@
 {
-  "totalAccessCount": 89,
+  "totalAccessCount": 95,
   "accounts": [
     {
       "id": "usr_1793521133121_m6do1",
@@ -293,8 +293,8 @@
   ],
   "bannedUsers": [],
   "analytics": {
-    "totalPlaybackSeconds": 3728,
-    "totalTracksPlayed": 15,
+    "totalPlaybackSeconds": 4024,
+    "totalTracksPlayed": 16,
     "trackPlays": {
       "dQw4w9WgXcQ": {
         "videoId": "dQw4w9WgXcQ",
@@ -399,6 +399,14 @@
         "thumbnail": "",
         "playCount": 1,
         "lastPlayed": "2026-11-03T09:19:48.968Z"
+      },
+      "msFjrYvsBsA": {
+        "videoId": "msFjrYvsBsA",
+        "title": "B-Side Blues",
+        "artist": "OFFICIAL HIGE DANDISM",
+        "thumbnail": "https://yt3.googleusercontent.com/_lT3SfLcRVPcdzYToxBn0zSW_eqUMwTky_bxTNAfUz4Ci1t4PguZAzIHGGqNWF05My7UWIjjZs2UNF7A=w120-h120-l90-rj",
+        "playCount": 1,
+        "lastPlayed": "2026-11-12T08:53:08.099Z"
       }
     },
     "searchQueries": {
@@ -414,20 +422,21 @@
       }
     },
     "hourlyVisits": {
+      "8": 6,
       "9": 46,
       "11": 19
     },
     "clientDevices": {
       "desktop": 1,
-      "mobile": 64,
+      "mobile": 70,
       "tablet": 0
     },
     "clientBrowsers": {
-      "Safari": 64,
+      "Safari": 70,
       "Other": 1
     },
     "clientOS": {
-      "macOS": 64,
+      "macOS": 70,
       "Other": 1
     },
     "lyricsStats": {

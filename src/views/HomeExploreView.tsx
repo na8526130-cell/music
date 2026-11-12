@@ -3,6 +3,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { api } from '../services/api';
 import { ExploreData, Track, OriconTrack } from '../types/music';
 import { SafeImage } from '../components/SafeImage';
+import { MoodRecommendationSection } from '../components/MoodRecommendationSection';
 import { getOfflineMeta, saveOfflineMeta } from '../services/offlineStorage';
 import {
   Play,
@@ -103,37 +104,31 @@ export const HomeExploreView: React.FC = () => {
       id: 'MPREb_QCAGO0Lbeum',
       title: 'Editorial',
       artist: 'Official髭男dism',
-      thumbnail:
-        'https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj',
+      thumbnail: '/assets/covers/editorial.jpg',
     },
     {
       id: 'VLPL0kiuaf8FBjcoMHbpmWcwZNZeNBV-ZIlr',
       title: '髭男 バラード',
       artist: 'Official髭男dism',
-      thumbnail:
-        'https://yt3.googleusercontent.com/_QkISoahOqF00bUAvG3XhY1zWTBI_IDWtDP2NN9waMIh64ehHX2V5BD1i36gA2eP7vj1z7M54=w544-h544-l90-rj',
+      thumbnail: '/assets/covers/ballad.jpg',
     },
     {
       id: 'MPREb_lvUlrlxInIt',
       title: 'ラブとピースは君の中',
       artist: 'Official髭男dism',
-      thumbnail:
-        'https://yt3.googleusercontent.com/I5rbAVpj4T33O8YLLoxUUXMryMtRZW5z8LkVjWV0SGo9a=w544-h544-s-l90-rj',
+      thumbnail: '/assets/covers/love_peace.jpg',
     },
     {
       id: 'MPREb_9XoC3Flm4Rv',
       title: 'Traveler',
       artist: 'Official髭男dism',
-      thumbnail:
-        'https://yt3.googleusercontent.com/WSbzA6F1eC3E-q_y9y_j4aKz5eR1E4aKx8uH6p-B0Y2x9_c4_t4=w544-h544-s-l90-rj',
+      thumbnail: '/assets/covers/traveler.jpg',
     },
     {
       id: 'MPREb_vJz07HnN0uA',
       title: 'Rejoice',
       artist: 'Official髭男dism',
-      thumbnail:
-        higedanData?.songs[0]?.thumbnail ||
-        'https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj',
+      thumbnail: '/assets/covers/rejoice.jpg',
     },
   ];
 
@@ -301,6 +296,9 @@ export const HomeExploreView: React.FC = () => {
           ))}
         </div>
       </section>
+
+      {/* 今の気分 × アーティスト レコメンドセクション */}
+      <MoodRecommendationSection />
 
       {/* 人気の Radio Section (Spotify layout matching reference image) */}
       <section className="space-y-3">

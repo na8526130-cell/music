@@ -51,6 +51,23 @@ export const api = {
     }
   },
 
+  async getMoodRecommendation(mood: string, artist?: string): Promise<{
+    success: boolean;
+    mood: { id: string; name: string; icon: string; tagline: string };
+    artist: string | null;
+    title: string;
+    tagline: string;
+    cover: string;
+    tracks: Track[];
+  }> {
+    const params = new URLSearchParams();
+    if (mood) params.append('mood', mood);
+    if (artist && artist !== '指定なし' && artist !== 'all') params.append('artist', artist);
+    const res = await fetch(`/api/music/mood-recommend?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch mood recommendation');
+    return res.json();
+  },
+
   async getSpotifyCurated(): Promise<{
     playlists: {
       id: string;
