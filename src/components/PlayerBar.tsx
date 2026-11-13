@@ -28,6 +28,7 @@ import {
   MessageSquare,
   Maximize2,
   Gauge,
+  Zap,
 } from 'lucide-react';
 
 function formatSeconds(secs: number): string {
@@ -80,7 +81,12 @@ export const PlayerBar: React.FC = () => {
     setCrossfadeDuration,
     endlessRadioActive,
     toggleEndlessRadio,
+    emotionRadioMood,
     startRadioForTrack,
+    digestMode,
+    toggleDigestMode,
+    digestRemainingSec,
+    trackTimestamps,
     openAddToPlaylistModal,
     eqModalOpen,
     setEqModalOpen,
@@ -205,15 +211,27 @@ export const PlayerBar: React.FC = () => {
           onMouseEnter={() => setIsHoveringProgress(true)}
           onMouseLeave={() => setIsHoveringProgress(false)}
         >
+          {/* Heatmap red markers from YouTube comments/chapters */}
+          {trackTimestamps?.heatMarkers?.map((m, idx) => (
+            <div
+              key={idx}
+              className="absolute top-0 bottom-0 w-1 bg-red-500 rounded-full pointer-events-none z-10"
+              style={{
+                left: `${m.percent}%`,
+                opacity: 0.35 + m.heat * 0.65,
+                boxShadow: m.heat > 0.65 ? '0 0 6px rgba(239,68,68,0.9)' : undefined,
+              }}
+            />
+          ))}
           <div
-            className="h-full bg-red-600 transition-all duration-100 relative group-hover:bg-red-500"
+            className="h-full bg-red-600 transition-all duration-100 relative group-hover:bg-red-500 z-20"
             style={{ width: `${percent}%` }}
           >
             <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md scale-0 group-hover:scale-100 transition-transform" />
           </div>
           {isHoveringProgress && duration > 0 && (
             <div
-              className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-[11px] text-white font-mono pointer-events-none"
+              className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-[11px] text-white font-mono pointer-events-none whitespace-nowrap z-30"
               style={{ left: `${(hoverPositionSec / duration) * 100}%` }}
             >
               {formatSeconds(hoverPositionSec)}
@@ -397,8 +415,16 @@ export const PlayerBar: React.FC = () => {
               className="relative flex-1 h-1.5 bg-neutral-800 rounded-full cursor-pointer overflow-hidden group"
               onClick={handleProgressClick}
             >
+              {trackTimestamps?.heatMarkers?.map((m, idx) => (
+                <span
+                  key={idx}
+                  title={`${m.timeLabel} ${m.topLabel}`}
+                  className="absolute top-0 bottom-0 w-1.5 -translate-x-1/2 bg-red-500 rounded-full z-10 pointer-events-none"
+                  style={{ left: `${m.percent}%`, opacity: 0.4 + m.heat * 0.6 }}
+                />
+              ))}
               <div
-                className="h-full bg-neutral-300 group-hover:bg-red-500 transition-colors rounded-full"
+                className="h-full bg-neutral-300 group-hover:bg-red-500 transition-colors rounded-full relative z-20"
                 style={{ width: `${percent}%` }}
               />
             </div>
@@ -444,12 +470,33 @@ export const PlayerBar: React.FC = () => {
             </button>
           </div>
 
-          {/* Endless Radio Mode Toggle */}
+          {/* Digest 25s Highlight Mode Toggle */}
+          <button
+            type="button"
+            onClick={toggleDigestMode}
+            title="ダイジェスト再生（サビ・盛り上がり箇所を25秒ずつ連続再生）"
+            className={`px-2 py-1 rounded-md text-xs flex items-center gap-1 transition-colors cursor-pointer ${
+              digestMode
+                ? 'bg-red-600 text-white border border-red-400 shadow-sm shadow-red-900/40'
+                : 'bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white'
+            }`}
+          >
+            <Zap className={`w-3.5 h-3.5 ${digestMode ? 'text-white fill-white' : 'text-neutral-500'}`} />
+            <span className="hidden xl:inline text-[11px] font-bold">
+              {digestMode ? `${digestRemainingSec}s` : 'ダイジェスト'}
+            </span>
+          </button>
+
+          {/* Endless Emotion Radio Mode Toggle */}
           <button
             type="button"
             onClick={toggleEndlessRadio}
-            title={endlessRadioActive ? 'ラジオモード: ON' : 'ラジオモード: OFF'}
-            className={`px-2 py-1 rounded-md text-xs flex items-center gap-1.5 transition-colors ${
+            title={
+              endlessRadioActive
+                ? `感情ラジオ ON${emotionRadioMood ? ` (${emotionRadioMood.name})` : ''}`
+                : '感情ラジオ OFF'
+            }
+            className={`px-2 py-1 rounded-md text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
               endlessRadioActive
                 ? 'bg-red-950/70 border border-red-800/60 text-red-300'
                 : 'bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white'
@@ -458,7 +505,9 @@ export const PlayerBar: React.FC = () => {
             <Radio
               className={`w-3.5 h-3.5 ${endlessRadioActive ? 'text-red-400' : 'text-neutral-500'}`}
             />
-            <span className="hidden xl:inline text-[11px] font-medium">ラジオ</span>
+            <span className="hidden xl:inline text-[11px] font-medium max-w-[84px] truncate">
+              {endlessRadioActive && emotionRadioMood ? emotionRadioMood.name : '感情ラジオ'}
+            </span>
             {endlessRadioActive && (
               <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
             )}

@@ -9,6 +9,17 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { Innertube, UniversalCache } from 'youtubei.js';
 import { kvCache } from './src/server/kvCache';
+import {
+  MOOD_DEFINITIONS,
+  MoodId,
+  analyzeTrackCommentsEmotion,
+  generateCommentBasedMoodRecommendations,
+} from './src/server/commentEmotion';
+import {
+  extractTrackTimestampsAndHeatmap,
+  fetchRealArtistLiveSetlists,
+} from './src/server/liveFeatures';
+import { normalizeArtistName } from './src/utils/artistNames';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,9 +64,11 @@ async function getInnertube(): Promise<Innertube> {
   if (innertubeInstance) return innertubeInstance;
   if (!initPromise) {
     initPromise = (async () => {
-      console.log('[InnerTube] Initializing YouTube InnerTube client...');
+      console.log('[InnerTube] Initializing YouTube InnerTube client (ja/JP)...');
       const yt = await Innertube.create({
         cache: new UniversalCache(false),
+        lang: 'ja',
+        location: 'JP',
         generate_session_locally: true,
       });
       console.log('[InnerTube] YouTube InnerTube client ready.');
@@ -101,6 +114,28 @@ function getBestThumbnail(thumbnails: any): string {
     }
   }
   return best?.url || (flat[0] && typeof flat[0] === 'object' ? flat[0]?.url : '') || '';
+}
+
+function getSearchShelfContents(
+  res: any,
+  getterKey: 'songs' | 'artists' | 'albums' | 'playlists' | 'videos'
+): any[] {
+  return res?.[getterKey]?.contents || res?.contents?.[0]?.contents || [];
+}
+
+function extractItemArtist(item: any, fallback = ''): string {
+  const direct = (item?.artists && item.artists[0]?.name) || item?.author?.name || '';
+  if (direct) return normalizeArtistName(direct);
+  const rawTitle = item?.title?.toString?.() || '';
+  const jpBracketMatch = rawTitle.match(/^([^「『【\[]+?)\s*[「『]/);
+  if (jpBracketMatch?.[1] && jpBracketMatch[1].length <= 32) {
+    return normalizeArtistName(jpBracketMatch[1]);
+  }
+  const dashSplit = rawTitle.split(/\s+[-–—]\s+/);
+  if (dashSplit.length >= 2 && dashSplit[0].trim().length <= 32) {
+    return normalizeArtistName(dashSplit[0].trim());
+  }
+  return normalizeArtistName(fallback);
 }
 
 // Format duration in seconds
@@ -184,13 +219,13 @@ async function startServer() {
       for (const q of queries) {
         try {
           const searchRes: any = await yt.music.search(q, { type: 'song' });
-          const contents = searchRes?.songs?.contents || [];
+          const contents = getSearchShelfContents(searchRes, 'songs');
           for (const s of contents) {
             if (s.id && !excludeIds.has(s.id)) {
               foundList.push({
                 id: s.id,
                 title: s.title?.toString?.() || rawTitle,
-                artist: s.artists?.[0]?.name || rawArtist,
+                artist: normalizeArtistName(s.artists?.[0]?.name || rawArtist),
                 thumbnail: getBestThumbnail(s.thumbnails || []),
                 duration: s.duration?.text || '',
                 durationSeconds: parseDurationToSeconds(s.duration?.text || ''),
@@ -383,14 +418,14 @@ async function startServer() {
             const searchPromise = yt.music.search(searchQuery, { type: 'song' });
             const timeoutPromise = new Promise<null>((r) => setTimeout(() => r(null), 2500));
             const searchRes: any = await Promise.race([searchPromise, timeoutPromise]);
-            const topSong = searchRes?.songs?.contents?.[0];
+            const topSong = getSearchShelfContents(searchRes, 'songs')[0];
 
             if (topSong && topSong.id) {
               return {
                 id: topSong.id,
                 rank: raw.rank,
                 title: raw.title,
-                artist: raw.artist || (topSong as any).artists?.[0]?.name || 'Unknown Artist',
+                artist: normalizeArtistName(raw.artist || (topSong as any).artists?.[0]?.name || 'Artist'),
                 artistId: (topSong as any).artists?.[0]?.id,
                 metric: raw.metric,
                 thumbnail: getBestThumbnail((topSong as any).thumbnails || []),
@@ -440,7 +475,7 @@ async function startServer() {
 
   // Explore: Home feed, Trending, New Releases, Moods & Genres, Oricon Rankings
   app.get('/api/music/explore', async (_req, res) => {
-    const cachedExplore = kvCache.get<any>('explore:home_feed');
+    const cachedExplore = kvCache.get<any>('explore:home_feed_ja_v2');
     if (cachedExplore) {
       return res.json({ ...cachedExplore, fromCache: true });
     }
@@ -464,7 +499,7 @@ async function startServer() {
             trendingSongs.push({
               id: item.id || item.video_id,
               title: item.title?.toString?.() || 'Unknown Title',
-              artist: (item.artists && item.artists[0]?.name) || item.author?.name || 'Unknown Artist',
+              artist: extractItemArtist(item, 'YouTube Music'),
               artistId: (item.artists && item.artists[0]?.id) || item.author?.id,
               album: item.album?.name,
               albumId: item.album?.id,
@@ -474,19 +509,29 @@ async function startServer() {
               views: item.views?.text || '',
             });
           }
-        } else if (title.includes('new') || title.includes('albums') || title.includes('新着') || title.includes('リリース')) {
+        } else if (title.includes('video') || title.includes('ビデオ') || title.includes('動画')) {
+          for (const item of rawItems) {
+            musicVideos.push({
+              id: item.id || item.video_id,
+              title: item.title?.toString?.() || 'Unknown Video',
+              artist: extractItemArtist(item, 'YouTube Music'),
+              views: item.views?.text || '',
+              thumbnail: getBestThumbnail(item.thumbnails || [item.thumbnail]),
+            });
+          }
+        } else if (title.includes('new') || title.includes('新作') || title.includes('アルバム') || title.includes('新着') || title.includes('リリース')) {
           for (const item of rawItems) {
             newReleases.push({
               id: item.id,
               title: item.title?.toString?.() || 'Unknown Title',
-              artist: (item.artists && item.artists[0]?.name) || item.author?.name || 'Unknown Artist',
+              artist: extractItemArtist(item, 'Artist'),
               artistId: (item.artists && item.artists[0]?.id) || item.author?.id,
               year: item.year || '',
               type: item.item_type || 'Album',
               thumbnail: getBestThumbnail(item.thumbnails || [item.thumbnail]),
             });
           }
-        } else if (title.includes('mood') || title.includes('genre') || title.includes('気分') || title.includes('ジャンル')) {
+        } else if (title.includes('mood') || title.includes('genre') || title.includes('ムード') || title.includes('気分') || title.includes('ジャンル')) {
           for (const item of rawItems) {
             if (item.button_text) {
               moodsAndGenres.push({
@@ -495,27 +540,17 @@ async function startServer() {
               });
             }
           }
-        } else if (title.includes('video') || title.includes('動画')) {
-          for (const item of rawItems) {
-            musicVideos.push({
-              id: item.id || item.video_id,
-              title: item.title?.toString?.() || 'Unknown Video',
-              artist: (item.artists && item.artists[0]?.name) || item.author?.name || 'Unknown Artist',
-              views: item.views?.text || '',
-              thumbnail: getBestThumbnail(item.thumbnails || [item.thumbnail]),
-            });
-          }
         }
       }
 
       // If trending is empty in explore, fetch a quick default search for trending hits
       if (trendingSongs.length === 0) {
         const fallbackSearch = await yt.music.search('J-POP ヒット チャート', { type: 'song' });
-        for (const item of (fallbackSearch.songs?.contents || []).slice(0, 15)) {
+        for (const item of getSearchShelfContents(fallbackSearch, 'songs').slice(0, 15)) {
           trendingSongs.push({
             id: item.id,
             title: (item as any).title?.toString?.() || 'Track',
-            artist: (item as any).artists?.[0]?.name || 'Artist',
+            artist: normalizeArtistName((item as any).artists?.[0]?.name || 'Artist'),
             artistId: (item as any).artists?.[0]?.id,
             album: (item as any).album?.name,
             duration: (item as any).duration?.text || '',
@@ -548,7 +583,7 @@ async function startServer() {
         oriconDigital,
       };
 
-      kvCache.set('explore:home_feed', payload, 2 * 3600);
+      kvCache.set('explore:home_feed_ja_v2', payload, 2 * 3600);
       res.json(payload);
     } catch (err: any) {
       const durationMs = Date.now() - startTime;
@@ -680,7 +715,7 @@ async function startServer() {
     const { effectiveQuery, matchedAlias } = expandSearchQuery(rawQuery);
     const query = effectiveQuery;
 
-    const cacheKey = `search:${type}:${query.toLowerCase()}`;
+    const cacheKey = `search_ja_v2:${type}:${query.toLowerCase()}`;
     const cachedSearch = kvCache.get<any>(cacheKey);
     if (cachedSearch) {
       return res.json({ ...cachedSearch, fromCache: true, originalQuery: rawQuery, effectiveQuery, matchedAlias });
@@ -699,11 +734,11 @@ async function startServer() {
           yt.music.search(query, { type: 'video' }).catch(() => null),
         ]);
 
-        const songs = (songRes?.songs?.contents || []).slice(0, 10).map((item: any) => ({
+        const songs = getSearchShelfContents(songRes, 'songs').slice(0, 10).map((item: any) => ({
           type: 'song',
           id: item.id,
           title: item.title?.toString?.() || '',
-          artist: item.artists?.[0]?.name || '',
+          artist: normalizeArtistName(item.artists?.[0]?.name || ''),
           artistId: item.artists?.[0]?.id,
           album: item.album?.name || '',
           albumId: item.album?.id,
@@ -712,37 +747,37 @@ async function startServer() {
           thumbnail: getBestThumbnail(item.thumbnails || []),
         }));
 
-        const artists = (artistRes?.artists?.contents || []).slice(0, 6).map((item: any) => ({
+        const artists = getSearchShelfContents(artistRes, 'artists').slice(0, 6).map((item: any) => ({
           type: 'artist',
           id: item.id,
-          name: item.name?.toString?.() || item.title?.toString?.() || '',
+          name: normalizeArtistName(item.name?.toString?.() || item.title?.toString?.() || ''),
           subscribers: item.subscribers || '',
           thumbnail: getBestThumbnail(item.thumbnails || []),
         }));
 
-        const albums = (albumRes?.albums?.contents || []).slice(0, 6).map((item: any) => ({
+        const albums = getSearchShelfContents(albumRes, 'albums').slice(0, 6).map((item: any) => ({
           type: 'album',
           id: item.id,
           title: item.title?.toString?.() || '',
-          artist: item.artists?.[0]?.name || item.author?.name || '',
+          artist: extractItemArtist(item),
           year: item.year || '',
           thumbnail: getBestThumbnail(item.thumbnails || []),
         }));
 
-        const playlists = (playlistRes?.playlists?.contents || []).slice(0, 6).map((item: any) => ({
+        const playlists = getSearchShelfContents(playlistRes, 'playlists').slice(0, 6).map((item: any) => ({
           type: 'playlist',
           id: item.id,
           title: item.title?.toString?.() || '',
-          author: item.author?.name || item.author?.toString?.() || '',
+          author: normalizeArtistName(item.author?.name || item.author?.toString?.() || ''),
           itemCount: item.item_count || '',
           thumbnail: getBestThumbnail(item.thumbnails || []),
         }));
 
-        const videos = (videoRes?.videos?.contents || []).slice(0, 6).map((item: any) => ({
+        const videos = getSearchShelfContents(videoRes, 'videos').slice(0, 6).map((item: any) => ({
           type: 'video',
           id: item.id,
           title: item.title?.toString?.() || '',
-          artist: item.artists?.[0]?.name || item.author?.name || '',
+          artist: extractItemArtist(item),
           views: item.views?.text || '',
           duration: item.duration?.text || '',
           thumbnail: getBestThumbnail(item.thumbnails || []),
@@ -775,12 +810,12 @@ async function startServer() {
       const searchResult = await yt.music.search(query, { type: searchType });
       let formattedItems: any[] = [];
 
-      if (searchType === 'song' && searchResult.songs?.contents) {
-        formattedItems = searchResult.songs.contents.map((item: any) => ({
+      if (searchType === 'song') {
+        formattedItems = getSearchShelfContents(searchResult, 'songs').map((item: any) => ({
           type: 'song',
           id: item.id,
           title: item.title?.toString?.() || '',
-          artist: item.artists?.[0]?.name || '',
+          artist: normalizeArtistName(item.artists?.[0]?.name || ''),
           artistId: item.artists?.[0]?.id,
           album: item.album?.name || '',
           albumId: item.album?.id,
@@ -788,38 +823,38 @@ async function startServer() {
           durationSeconds: parseDurationToSeconds(item.duration?.text || ''),
           thumbnail: getBestThumbnail(item.thumbnails || []),
         }));
-      } else if (searchType === 'artist' && searchResult.artists?.contents) {
-        formattedItems = searchResult.artists.contents.map((item: any) => ({
+      } else if (searchType === 'artist') {
+        formattedItems = getSearchShelfContents(searchResult, 'artists').map((item: any) => ({
           type: 'artist',
           id: item.id,
-          name: item.name?.toString?.() || item.title?.toString?.() || '',
+          name: normalizeArtistName(item.name?.toString?.() || item.title?.toString?.() || ''),
           subscribers: item.subscribers || '',
           thumbnail: getBestThumbnail(item.thumbnails || []),
         }));
-      } else if (searchType === 'album' && searchResult.albums?.contents) {
-        formattedItems = searchResult.albums.contents.map((item: any) => ({
+      } else if (searchType === 'album') {
+        formattedItems = getSearchShelfContents(searchResult, 'albums').map((item: any) => ({
           type: 'album',
           id: item.id,
           title: item.title?.toString?.() || '',
-          artist: item.artists?.[0]?.name || item.author?.name || '',
+          artist: extractItemArtist(item),
           year: item.year || '',
           thumbnail: getBestThumbnail(item.thumbnails || []),
         }));
-      } else if (searchType === 'playlist' && searchResult.playlists?.contents) {
-        formattedItems = searchResult.playlists.contents.map((item: any) => ({
+      } else if (searchType === 'playlist') {
+        formattedItems = getSearchShelfContents(searchResult, 'playlists').map((item: any) => ({
           type: 'playlist',
           id: item.id,
           title: item.title?.toString?.() || '',
-          author: item.author?.name || '',
+          author: normalizeArtistName(item.author?.name || ''),
           itemCount: item.item_count || '',
           thumbnail: getBestThumbnail(item.thumbnails || []),
         }));
-      } else if (searchType === 'video' && searchResult.videos?.contents) {
-        formattedItems = searchResult.videos.contents.map((item: any) => ({
+      } else if (searchType === 'video') {
+        formattedItems = getSearchShelfContents(searchResult, 'videos').map((item: any) => ({
           type: 'video',
           id: item.id,
           title: item.title?.toString?.() || '',
-          artist: item.artists?.[0]?.name || item.author?.name || '',
+          artist: extractItemArtist(item),
           views: item.views?.text || '',
           duration: item.duration?.text || '',
           thumbnail: getBestThumbnail(item.thumbnails || []),
@@ -858,7 +893,7 @@ async function startServer() {
 
     const { effectiveQuery, matchedAlias } = expandSearchQuery(rawQuery);
     const query = effectiveQuery;
-    const cacheKey = `spotify_search:${query.toLowerCase()}`;
+    const cacheKey = `spotify_search_ja_v2:${query.toLowerCase()}`;
     const cached = kvCache.get<any>(cacheKey);
     if (cached) {
       return res.json({ ...cached, fromCache: true });
@@ -899,7 +934,7 @@ async function startServer() {
 
             try {
               const sRes = await yt.music.search(searchQ, { type: 'song' });
-              const topHit = sRes.songs?.contents?.[0];
+              const topHit = getSearchShelfContents(sRes, 'songs')[0];
               if (topHit?.id) {
                 ytId = topHit.id;
                 durationText = topHit.duration?.text || '';
@@ -917,7 +952,7 @@ async function startServer() {
             return {
               id: ytId || `spotify_${item.trackId}`,
               title: item.trackName,
-              artist: item.artistName,
+              artist: normalizeArtistName(item.artistName),
               album: item.collectionName || 'Single',
               duration: durationText || `${Math.floor(durationSec / 60)}:${(durationSec % 60).toString().padStart(2, '0')}`,
               durationSeconds: durationSec,
@@ -1033,7 +1068,7 @@ async function startServer() {
       return res.status(404).json({ error: 'Playlist not found' });
     }
 
-    const cacheKey = `spotify_curated_${item.spotifyId}`;
+    const cacheKey = `spotify_curated_ja_v2_${item.spotifyId}`;
     const cached = kvCache.get<any>(cacheKey);
     if (cached) {
       return res.json({ ...cached, fromCache: true });
@@ -1059,13 +1094,13 @@ async function startServer() {
             const searchQ = `${rawItem.title} ${cleanArtist}`.trim();
             try {
               const sRes = await yt.music.search(searchQ, { type: 'song' });
-              const topHit = sRes.songs?.contents?.[0];
+              const topHit = getSearchShelfContents(sRes, 'songs')[0];
               if (topHit?.id) {
                 return {
                   index: i + idx + 1,
                   id: topHit.id,
                   title: topHit.title?.toString?.() || rawItem.title,
-                  artist: topHit.artists?.[0]?.name || rawItem.artist,
+                  artist: normalizeArtistName(topHit.artists?.[0]?.name || rawItem.artist),
                   album: topHit.album?.name || item.title,
                   duration: topHit.duration?.text || '',
                   durationSeconds:
@@ -1711,7 +1746,7 @@ async function startServer() {
           try {
             const sQuery = `${cleanTitle} ${cleanArtist}`.trim();
             const sRes = await yt.music.search(sQuery, { type: 'song' });
-            const candidate = sRes.songs?.contents?.[0];
+            const candidate = getSearchShelfContents(sRes, 'songs')[0];
             if (candidate?.id && candidate.id !== videoId) {
               const matchedL = await yt.music.getLyrics(candidate.id);
               if (matchedL?.description?.text) {
@@ -1787,13 +1822,14 @@ async function startServer() {
       const related = await yt.music.getRelated(videoId);
       const items: any[] = [];
 
-      for (const section of (related as any).sections || []) {
+      const relatedShelves = (related as any).sections || (related as any).contents || [];
+      for (const section of relatedShelves) {
         for (const item of section.contents || []) {
           if (item.id || item.video_id) {
             items.push({
               id: item.id || item.video_id,
               title: item.title?.toString?.() || '',
-              artist: item.artists?.[0]?.name || item.author?.name || '',
+              artist: extractItemArtist(item),
               artistId: item.artists?.[0]?.id || item.author?.id,
               album: item.album?.name,
               duration: item.duration?.text || '',
@@ -1829,7 +1865,7 @@ async function startServer() {
   app.get('/api/music/artist/:id', async (req, res) => {
     const artistId = req.params.id;
     const startTime = Date.now();
-    const cacheKey = `artist_profile_${artistId}`;
+    const cacheKey = `artist_profile_ja_v2_${artistId}`;
     const cached = kvCache.get<any>(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -1866,7 +1902,7 @@ async function startServer() {
       }
 
       const header = {
-        name: headerRaw?.title?.toString?.() || 'Artist',
+        name: normalizeArtistName(headerRaw?.title?.toString?.() || 'Artist'),
         description: headerRaw?.description?.text || '',
         subscribers: headerRaw?.subscribers?.text || '',
         thumbnail: headerThumb,
@@ -1983,7 +2019,7 @@ async function startServer() {
     const startTime = Date.now();
 
     // Check kvCache first
-    const cacheKey = `album_detail_${rawAlbumId}`;
+    const cacheKey = `album_detail_ja_v2_${rawAlbumId}`;
     const cached = kvCache.get<any>(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -2027,7 +2063,7 @@ async function startServer() {
         const header = {
           id: actualAlbumId,
           title: pHeader?.title?.toString?.() || pHeader?.title?.text || (actualAlbumId.includes('VLPL0kiuaf8') ? 'Official髭男dism 落ち着く系バラード' : 'プレイリスト'),
-          artist: pHeader?.author?.name || pHeader?.author?.text || 'Official髭男dism',
+          artist: normalizeArtistName(pHeader?.author?.name || pHeader?.author?.text || 'Official髭男dism'),
           artistId: pHeader?.author?.id || 'UC84Rm0a3gimYXPtqp5O_JRw',
           year: '',
           thumbnail: headerThumbnail,
@@ -2039,7 +2075,7 @@ async function startServer() {
             index: idx + 1,
             id: item.id || item.video_id,
             title: item.title?.toString?.() || item.title?.text || '',
-            artist: item.artists?.[0]?.name || header.artist,
+            artist: normalizeArtistName(item.artists?.[0]?.name || header.artist),
             artistId: item.artists?.[0]?.id || header.artistId,
             album: header.title,
             albumId: actualAlbumId,
@@ -2058,9 +2094,7 @@ async function startServer() {
       if (!actualAlbumId.startsWith('MPREb_') && !actualAlbumId.startsWith('OLAK5uy_')) {
         try {
           const search = await yt.music.search(rawAlbumId, { type: 'album' });
-          const firstAlbum =
-            (search as any)?.albums?.contents?.[0] ||
-            (search as any)?.contents?.[0]?.contents?.[0];
+          const firstAlbum = getSearchShelfContents(search, 'albums')[0];
           if (firstAlbum?.id) {
             actualAlbumId = firstAlbum.id;
           }
@@ -2095,12 +2129,13 @@ async function startServer() {
         else if (actualAlbumId === 'MPREb_vJz07HnN0uA') headerThumbnail = '/assets/covers/rejoice.jpg';
       }
 
-      const headerArtist =
+      const headerArtist = normalizeArtistName(
         rawHeader?.strapline_text_one?.text ||
         rawHeader?.artists?.[0]?.name ||
         rawHeader?.author?.name ||
         rawHeader?.subtitle?.runs?.[0]?.text ||
-        'Official髭男dism';
+        'Official髭男dism'
+      );
 
       const headerArtistId =
         rawHeader?.strapline_text_one?.endpoint?.payload?.browseId ||
@@ -2125,7 +2160,7 @@ async function startServer() {
         index: idx + 1,
         id: item.id || item.video_id,
         title: item.title?.toString?.() || item.title?.text || '',
-        artist: item.artists?.[0]?.name || header.artist,
+        artist: normalizeArtistName(item.artists?.[0]?.name || header.artist),
         artistId: item.artists?.[0]?.id || header.artistId,
         album: header.title,
         albumId: actualAlbumId,
@@ -2236,7 +2271,7 @@ async function startServer() {
 
       const header = {
         title: (playlist.header as any)?.title?.toString?.() || 'Playlist',
-        author: (playlist.header as any)?.author?.name || '',
+        author: normalizeArtistName((playlist.header as any)?.author?.name || ''),
         thumbnail: getBestThumbnail((playlist.header as any)?.thumbnails || []),
         itemCount: (playlist.items || []).length,
       };
@@ -2245,7 +2280,7 @@ async function startServer() {
         index: idx + 1,
         id: item.id || item.video_id,
         title: item.title?.toString?.() || '',
-        artist: item.artists?.[0]?.name || item.author?.name || '',
+        artist: extractItemArtist(item),
         duration: item.duration?.text || '',
         durationSeconds: parseDurationToSeconds(item.duration?.text || ''),
         thumbnail: getBestThumbnail(item.thumbnails || [header.thumbnail]),
@@ -2291,7 +2326,7 @@ async function startServer() {
       const track = {
         id: basic?.id || videoId,
         title: basic?.title || 'Unknown Title',
-        artist: basic?.author || 'Unknown Artist',
+        artist: normalizeArtistName(basic?.author || 'Unknown Artist'),
         duration: durText,
         durationSeconds: durSec,
         thumbnail: getBestThumbnail(basic?.thumbnail || []),
@@ -2329,7 +2364,7 @@ async function startServer() {
       const yt = await getInnertube();
       const search = await yt.music.search('Official髭男dism', { type: 'song' });
 
-      const topHits = (search.songs?.contents || []).slice(0, 16).map((item: any, idx: number) => ({
+      const topHits = getSearchShelfContents(search, 'songs').slice(0, 16).map((item: any, idx: number) => ({
         index: idx + 1,
         id: item.id,
         title: item.title?.toString?.() || '',
@@ -2363,230 +2398,176 @@ async function startServer() {
     }
   });
 
-  // Mood & Artist Recommendation Engine (今の気分とアーティストによるスマート選曲)
+  // Mood & Artist Recommendation Engine powered by real YouTube comment emotion extraction
   app.get('/api/music/mood-recommend', async (req, res) => {
     const rawMood = String(req.query.mood || 'energy').toLowerCase().trim();
     const rawArtist = String(req.query.artist || '').trim();
-    const cacheKey = `mood_rec_${rawMood}_${rawArtist.toLowerCase()}`;
-    const cached = kvCache.get<any>(cacheKey);
-    if (cached) {
-      return res.json(cached);
-    }
+    const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
 
-    const moodMeta: Record<string, { id: string; name: string; icon: string; tagline: string; keywords: string; defaultCover: string }> = {
-      energy: {
-        id: 'energy',
-        name: 'テンションUP',
-        icon: 'Flame',
-        tagline: 'テンションを一気に引き上げる爆音・アップビートナンバー',
-        keywords: 'アップテンポ 盛り上がる ロック',
-        defaultCover: '/assets/covers/editorial.jpg',
-      },
-      relax: {
-        id: 'relax',
-        name: 'チル・リラックス',
-        icon: 'Coffee',
-        tagline: '日々の疲れを癒すアコースティック＆メロウな時間',
-        keywords: 'チル リラックス アコースティック 落ち着く',
-        defaultCover: '/assets/covers/ballad.jpg',
-      },
-      drive: {
-        id: 'drive',
-        name: 'ドライブ・爽快',
-        icon: 'Car',
-        tagline: '爽やかな風を感じて走り抜ける疾走感チューン',
-        keywords: 'ドライブ 爽快 グルーヴ 疾走感',
-        defaultCover: '/assets/covers/traveler.jpg',
-      },
-      focus: {
-        id: 'focus',
-        name: '集中・作業用',
-        icon: 'Headphones',
-        tagline: '作業や学習の没入感を高める深層ゾーンBGM',
-        keywords: '作業用 集中 ピアノ アンビエント',
-        defaultCover: '/assets/covers/editorial.jpg',
-      },
-      emotional: {
-        id: 'emotional',
-        name: 'エモい・夜',
-        icon: 'Moon',
-        tagline: '夜の静寂と感性に染み渡るエモーショナル・ポップ',
-        keywords: 'エモい 夜 シティポップ',
-        defaultCover: '/assets/covers/rejoice.jpg',
-      },
-      sad: {
-        id: 'sad',
-        name: '切ない・バラード',
-        icon: 'Droplets',
-        tagline: '心に沁みる極上の泣けるバラードコレクション',
-        keywords: '切ない バラード 泣ける 涙',
-        defaultCover: '/assets/covers/love_peace.jpg',
-      },
-      happy: {
-        id: 'happy',
-        name: '元気・ポジティブ',
-        icon: 'Sparkles',
-        tagline: '前を向くパワーと笑顔を届ける応援アンセム',
-        keywords: '元気 ポジティブ 明るい 笑顔',
-        defaultCover: '/assets/covers/rejoice.jpg',
-      },
-      nostalgic: {
-        id: 'nostalgic',
-        name: '懐かしい・名曲',
-        icon: 'Radio',
-        tagline: '色褪せない記憶と名メロディが蘇る名曲選',
-        keywords: '懐かしい 名曲 定番 定番ヒット',
-        defaultCover: '/assets/covers/traveler.jpg',
-      },
-    };
+    const moodId: MoodId = (MOOD_DEFINITIONS[rawMood as MoodId] ? rawMood : 'energy') as MoodId;
+    const currentMood = MOOD_DEFINITIONS[moodId];
+    const cacheKey = `mood_rec_yt_comments_v4_${moodId}_${rawArtist.toLowerCase()}`;
 
-    const currentMood = moodMeta[rawMood] || moodMeta['energy'];
-
-    // Master curated database of genuine verified tracks with 100% playable YouTube IDs
-    const curatedDatabase: Record<string, any[]> = {
-      energy: [
-        { id: 'O1bhZgkC4Gw', title: 'Cry Baby', artist: 'Official髭男dism', duration: '4:02', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'K9jL8pQ2n4X', title: 'Mixed Nuts', artist: 'Official髭男dism', duration: '3:33', thumbnail: 'https://i.ytimg.com/vi/K9jL8pQ2n4X/hqdefault.jpg' },
-        { id: 'TXHPY218DC4', title: 'ノーダウト', artist: 'Official髭男dism', duration: '3:24', thumbnail: '/assets/covers/traveler.jpg' },
-        { id: '7HgJIAUt6ks', title: '怪獣の花唄', artist: 'Vaundy', duration: '3:45', thumbnail: 'https://i.ytimg.com/vi/7HgJIAUt6ks/hqdefault.jpg' },
-        { id: 'ZRtdQ81jPUQ', title: 'アイドル', artist: 'YOASOBI', duration: '3:33', thumbnail: 'https://i.ytimg.com/vi/ZRtdQ81jPUQ/hqdefault.jpg' },
-        { id: 'dy90tA3TT1c', title: '怪物', artist: 'YOASOBI', duration: '3:25', thumbnail: 'https://i.ytimg.com/vi/dy90tA3TT1c/hqdefault.jpg' },
-        { id: 'hm1naZ804h8', title: '一途', artist: 'King Gnu', duration: '3:11', thumbnail: 'https://i.ytimg.com/vi/hm1naZ804h8/hqdefault.jpg' },
-        { id: 'fhzKLGCPbT8', title: 'SPECIALZ', artist: 'King Gnu', duration: '3:58', thumbnail: 'https://i.ytimg.com/vi/fhzKLGCPbT8/hqdefault.jpg' },
-        { id: 'x2rvbKoxpA0', title: 'ダンスホール', artist: 'Mrs. GREEN APPLE', duration: '3:42', thumbnail: 'https://i.ytimg.com/vi/x2rvbKoxpA0/hqdefault.jpg' },
-        { id: 'Qp3b-RXtz4w', title: 'ライラック', artist: 'Mrs. GREEN APPLE', duration: '3:41', thumbnail: 'https://i.ytimg.com/vi/Qp3b-RXtz4w/hqdefault.jpg' },
-        { id: 'M2cckDmNLMI', title: 'KICK BACK', artist: '米津玄師', duration: '3:13', thumbnail: 'https://i.ytimg.com/vi/M2cckDmNLMI/hqdefault.jpg' },
-        { id: 'pgXpM4l_MwI', title: '唱', artist: 'Ado', duration: '3:11', thumbnail: 'https://i.ytimg.com/vi/pgXpM4l_MwI/hqdefault.jpg' },
-      ],
-      relax: [
-        { id: 'TQ8WlA2GXbk', title: '恋の前ならえ', artist: 'Official髭男dism', duration: '4:28', thumbnail: '/assets/covers/love_peace.jpg' },
-        { id: 'l_HTf8JRTts', title: 'Bedroom Talk', artist: 'Official髭男dism', duration: '3:22', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'SICzNfWhgn8', title: 'みどりの雨避け', artist: 'Official髭男dism', duration: '3:59', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'MCZoio4dBB4', title: 'Shower', artist: 'Official髭男dism', duration: '5:41', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'v2Xz_D9z9xk', title: '日曜日のラブレター', artist: 'Official髭男dism', duration: '3:54', thumbnail: '/assets/covers/love_peace.jpg' },
-        { id: 'V_yqX2n3j9o', title: 'napori', artist: 'Vaundy', duration: '3:22', thumbnail: 'https://i.ytimg.com/vi/7HgJIAUt6ks/hqdefault.jpg' },
-        { id: 'Tb0Gsm7pUBo', title: 'きらり', artist: '藤井 風', duration: '3:50', thumbnail: 'https://i.ytimg.com/vi/Tb0Gsm7pUBo/hqdefault.jpg' },
-        { id: 'dJrN1uWz_2s', title: '死ぬのがいいわ', artist: '藤井 風', duration: '3:05', thumbnail: 'https://i.ytimg.com/vi/dJrN1uWz_2s/hqdefault.jpg' },
-        { id: '8iuLXODzL04', title: 'たぶん', artist: 'YOASOBI', duration: '4:16', thumbnail: 'https://i.ytimg.com/vi/8iuLXODzL04/hqdefault.jpg' },
-        { id: 'kzZ6KXDM1RI', title: 'レオ', artist: '優里', duration: '4:12', thumbnail: 'https://i.ytimg.com/vi/kzZ6KXDM1RI/hqdefault.jpg' },
-        { id: '4Q_4V6k9o7I', title: 'Soranji', artist: 'Mrs. GREEN APPLE', duration: '5:45', thumbnail: 'https://i.ytimg.com/vi/x2rvbKoxpA0/hqdefault.jpg' },
-      ],
-      drive: [
-        { id: 'pkoxFpmiCWo', title: 'パラボラ', artist: 'Official髭男dism', duration: '5:06', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'p1qM75a9FeE', title: 'Hello', artist: 'Official髭男dism', duration: '4:43', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: '6lnS-8FVod4', title: 'Universe', artist: 'Official髭男dism', duration: '4:46', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'duZ1Ie1Qh8g', title: 'イエスタデイ', artist: 'Official髭男dism', duration: '4:59', thumbnail: '/assets/covers/traveler.jpg' },
-        { id: 'Y4nEEZwckuU', title: '群青', artist: 'YOASOBI', duration: '4:08', thumbnail: 'https://i.ytimg.com/vi/Y4nEEZwckuU/hqdefault.jpg' },
-        { id: 'qT3N4s0p1lM', title: 'Tokimeki', artist: 'Vaundy', duration: '3:29', thumbnail: 'https://i.ytimg.com/vi/7HgJIAUt6ks/hqdefault.jpg' },
-        { id: 'foE1mO2yM04', title: '飛行艇', artist: 'King Gnu', duration: '3:21', thumbnail: 'https://i.ytimg.com/vi/foE1mO2yM04/hqdefault.jpg' },
-        { id: 'm34VYU7-a6w', title: '青と夏', artist: 'Mrs. GREEN APPLE', duration: '4:30', thumbnail: 'https://i.ytimg.com/vi/m34VYU7-a6w/hqdefault.jpg' },
-        { id: 'UFQEttrn6zk', title: '感電', artist: '米津玄師', duration: '4:24', thumbnail: 'https://i.ytimg.com/vi/UFQEttrn6zk/hqdefault.jpg' },
-        { id: 'L-dH-X_y2i0', title: '怪盗', artist: 'back number', duration: '3:49', thumbnail: 'https://i.ytimg.com/vi/L-dH-X_y2i0/hqdefault.jpg' },
-      ],
-      focus: [
-        { id: 'mN3MEypzw2A', title: 'Editorial', artist: 'Official髭男dism', duration: '2:15', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'SICzNfWhgn8', title: 'みどりの雨避け', artist: 'Official髭男dism', duration: '3:59', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'Gbz2C2gQv10', title: '融解sink', artist: 'Vaundy', duration: '3:40', thumbnail: 'https://i.ytimg.com/vi/7HgJIAUt6ks/hqdefault.jpg' },
-        { id: 'Vl1A_5X2X9w', title: '地球儀', artist: '米津玄師', duration: '4:33', thumbnail: 'https://i.ytimg.com/vi/Vl1A_5X2X9w/hqdefault.jpg' },
-        { id: 'dJrN1uWz_2s', title: '死ぬのがいいわ (Acoustic)', artist: '藤井 風', duration: '3:05', thumbnail: 'https://i.ytimg.com/vi/dJrN1uWz_2s/hqdefault.jpg' },
-        { id: 'MCZoio4dBB4', title: 'Shower', artist: 'Official髭男dism', duration: '5:41', thumbnail: '/assets/covers/editorial.jpg' },
-      ],
-      emotional: [
-        { id: 'TQ8WlA2GXbk', title: 'Subtitle', artist: 'Official髭男dism', duration: '5:05', thumbnail: 'https://i.ytimg.com/vi/TQ8WlA2GXbk/hqdefault.jpg' },
-        { id: 'PZX2npwj6jY', title: 'アポトーシス', artist: 'Official髭男dism', duration: '6:30', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'by4SYYWl12A', title: '夜に駆ける', artist: 'YOASOBI', duration: '4:21', thumbnail: 'https://i.ytimg.com/vi/by4SYYWl12A/hqdefault.jpg' },
-        { id: 'ony539T074U', title: '白日', artist: 'King Gnu', duration: '4:35', thumbnail: 'https://i.ytimg.com/vi/ony539T074U/hqdefault.jpg' },
-        { id: 'SX_ViT4Ra7k', title: 'Lemon', artist: '米津玄師', duration: '4:15', thumbnail: 'https://i.ytimg.com/vi/SX_ViT4Ra7k/hqdefault.jpg' },
-        { id: 'cbqvxDTLM84', title: 'ベテルギウス', artist: '優里', duration: '3:50', thumbnail: 'https://i.ytimg.com/vi/cbqvxDTLM84/hqdefault.jpg' },
-        { id: 'FL1QyyAtZ1A', title: '踊り子', artist: 'Vaundy', duration: '3:48', thumbnail: 'https://i.ytimg.com/vi/FL1QyyAtZ1A/hqdefault.jpg' },
-      ],
-      sad: [
-        { id: 'H6Y8eZ4p7cM', title: 'Pretender', artist: 'Official髭男dism', duration: '5:26', thumbnail: '/assets/covers/traveler.jpg' },
-        { id: 'bt8wNQJaKAk', title: 'I Love...', artist: 'Official髭男dism', duration: '4:43', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'kff_DXor7jc', title: 'Laughter', artist: 'Official髭男dism', duration: '5:53', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'iqEr3P78fz8', title: '水平線', artist: 'back number', duration: '4:48', thumbnail: 'https://i.ytimg.com/vi/iqEr3P78fz8/hqdefault.jpg' },
-        { id: 'JfgOjtqPmFQ', title: 'クリスマスソング', artist: 'back number', duration: '5:41', thumbnail: 'https://i.ytimg.com/vi/JfgOjtqPmFQ/hqdefault.jpg' },
-        { id: 'kzZ6KXDM1RI', title: 'ドライフラワー', artist: '優里', duration: '4:46', thumbnail: 'https://i.ytimg.com/vi/kzZ6KXDM1RI/hqdefault.jpg' },
-        { id: 'M6gcoDN9jBc', title: '逆夢', artist: 'King Gnu', duration: '5:08', thumbnail: 'https://i.ytimg.com/vi/M6gcoDN9jBc/hqdefault.jpg' },
-      ],
-      happy: [
-        { id: '2RzXgKk2gqM', title: 'ケセラセラ', artist: 'Mrs. GREEN APPLE', duration: '4:33', thumbnail: 'https://i.ytimg.com/vi/x2rvbKoxpA0/hqdefault.jpg' },
-        { id: 'x2rvbKoxpA0', title: 'ダンスホール', artist: 'Mrs. GREEN APPLE', duration: '3:42', thumbnail: 'https://i.ytimg.com/vi/x2rvbKoxpA0/hqdefault.jpg' },
-        { id: 'p1qM75a9FeE', title: 'Hello', artist: 'Official髭男dism', duration: '4:43', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: '6lnS-8FVod4', title: 'Universe', artist: 'Official髭男dism', duration: '4:46', thumbnail: '/assets/covers/editorial.jpg' },
-        { id: 'nhOhFOoURnE', title: '三原色', artist: 'YOASOBI', duration: '3:44', thumbnail: 'https://i.ytimg.com/vi/nhOhFOoURnE/hqdefault.jpg' },
-        { id: 'iqEr3P78fz8', title: 'アイラブユー', artist: 'back number', duration: '3:57', thumbnail: 'https://i.ytimg.com/vi/iqEr3P78fz8/hqdefault.jpg' },
-      ],
-      nostalgic: [
-        { id: 'duZ1Ie1Qh8g', title: '115万キロのフィルム', artist: 'Official髭男dism', duration: '5:24', thumbnail: '/assets/covers/traveler.jpg' },
-        { id: 'L-dH-X_y2i0', title: '高嶺の花子さん', artist: 'back number', duration: '4:55', thumbnail: 'https://i.ytimg.com/vi/L-dH-X_y2i0/hqdefault.jpg' },
-        { id: 'K9jL8pQ2n4X', title: 'SWEET TWEET', artist: 'Official髭男dism', duration: '4:16', thumbnail: '/assets/covers/love_peace.jpg' },
-        { id: 'H6Y8eZ4p7cM', title: 'Pretender', artist: 'Official髭男dism', duration: '5:26', thumbnail: '/assets/covers/traveler.jpg' },
-        { id: 'm34VYU7-a6w', title: '青と夏', artist: 'Mrs. GREEN APPLE', duration: '4:30', thumbnail: 'https://i.ytimg.com/vi/m34VYU7-a6w/hqdefault.jpg' },
-        { id: '-kgOFJ3XXow', title: '宿命', artist: 'Official髭男dism', duration: '4:40', thumbnail: '/assets/covers/traveler.jpg' },
-      ],
-    };
-
-    let selectedTracks: any[] = curatedDatabase[currentMood.id] || curatedDatabase['energy'];
-
-    // If artist is specified (and not '指定なし')
-    if (rawArtist && rawArtist !== '指定なし' && rawArtist !== 'all') {
-      const normArtist = rawArtist.toLowerCase();
-      const filtered = selectedTracks.filter((t) => t.artist.toLowerCase().includes(normArtist));
-      if (filtered.length >= 3) {
-        selectedTracks = filtered;
-      } else {
-        // Query Apple Music catalog for this specific artist + mood keywords
-        try {
-          const query = `${rawArtist} ${currentMood.keywords}`.trim();
-          const catRes = await fetch(
-            `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=jp&entity=song&limit=15`
-          );
-          if (catRes.ok) {
-            const catData = await catRes.json();
-            const rawItems = (catData.results || []).filter((item: any) =>
-              item.artistName?.toLowerCase().includes(normArtist) || normArtist.includes(item.artistName?.toLowerCase())
-            );
-            if (rawItems.length > 0) {
-              selectedTracks = rawItems.slice(0, 15).map((item: any) => {
-                const hiResArt = (item.artworkUrl100 || '').replace(/100x100bb\.jpg$/, '600x600bb.jpg');
-                const durationSec = Math.round((item.trackTimeMillis || 0) / 1000);
-                const minutes = Math.floor(durationSec / 60);
-                const seconds = durationSec % 60;
-                return {
-                  id: `catalog_${item.trackId}`,
-                  title: item.trackName,
-                  artist: item.artistName,
-                  album: item.collectionName || item.trackName,
-                  duration: `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`,
-                  durationSeconds: durationSec,
-                  thumbnail: hiResArt || currentMood.defaultCover,
-                };
-              });
-            }
-          }
-        } catch (e: any) {
-          console.warn('[Mood Rec] Error fetching custom artist catalog:', e.message);
-        }
+    if (!forceRefresh) {
+      const cached = kvCache.get<any>(cacheKey);
+      if (cached) {
+        return res.json(cached);
       }
     }
 
-    const title = rawArtist && rawArtist !== '指定なし' && rawArtist !== 'all'
-      ? `${rawArtist} × ${currentMood.name} Mix`
-      : `${currentMood.name} ベストセレクト`;
+    const startTime = Date.now();
+    try {
+      const yt = await getInnertube();
+      const { tracks, analyzedTotalComments, topEmotionTags } =
+        await generateCommentBasedMoodRecommendations(yt, moodId, rawArtist);
 
-    const result = {
-      success: true,
-      mood: currentMood,
-      artist: rawArtist && rawArtist !== '指定なし' && rawArtist !== 'all' ? rawArtist : null,
-      title,
-      tagline: currentMood.tagline,
-      cover: currentMood.defaultCover,
-      tracks: selectedTracks,
-    };
+      const artistLabel =
+        rawArtist && rawArtist !== '指定なし' && rawArtist !== 'all' ? rawArtist : null;
+      const title = artistLabel
+        ? `${artistLabel} × ${currentMood.name} Mix`
+        : `${currentMood.name} ベストセレクト`;
 
-    kvCache.set(cacheKey, result, 3600);
-    res.json(result);
+      const result = {
+        success: true,
+        mood: {
+          id: currentMood.id,
+          name: currentMood.name,
+          icon: currentMood.icon,
+          tagline: currentMood.tagline,
+          keywords: currentMood.keywords,
+          defaultCover: currentMood.defaultCover,
+        },
+        artist: artistLabel,
+        title,
+        tagline: currentMood.tagline,
+        cover: tracks[0]?.thumbnail || currentMood.defaultCover,
+        analyzedTotalComments,
+        topEmotionTags,
+        tracks,
+      };
+
+      recordLog({
+        endpoint: 'music.moodRecommend[YouTubeComments]',
+        params: { mood: moodId, artist: artistLabel },
+        durationMs: Date.now() - startTime,
+        status: 'success',
+        itemCount: tracks.length,
+      });
+
+      if (tracks.length > 0) {
+        kvCache.set(cacheKey, result, 3600);
+      }
+      res.json(result);
+    } catch (err: any) {
+      recordLog({
+        endpoint: 'music.moodRecommend[YouTubeComments]',
+        params: { mood: moodId, artist: rawArtist },
+        durationMs: Date.now() - startTime,
+        status: 'error',
+        error: err.message,
+      });
+      res.status(500).json({ success: false, error: err.message || '選曲に失敗しました' });
+    }
+  });
+
+  // Analyze real YouTube comments on a specific track and extract its emotions
+  app.get('/api/music/comment-emotions/:videoId', async (req, res) => {
+    const rawVideoId = String(req.params.videoId || '').trim();
+    const title = String(req.query.title || '').trim();
+    const artist = String(req.query.artist || '').trim();
+
+    if (!rawVideoId) {
+      return res.status(400).json({ success: false, error: 'videoId is required' });
+    }
+
+    const startTime = Date.now();
+    try {
+      const yt = await getInnertube();
+      const analysis = await analyzeTrackCommentsEmotion(yt, rawVideoId, title, artist);
+      recordLog({
+        endpoint: 'music.commentEmotions',
+        params: { videoId: rawVideoId, title, artist },
+        durationMs: Date.now() - startTime,
+        status: 'success',
+        itemCount: analysis.analyzedCount,
+      });
+      res.json({ success: true, ...analysis });
+    } catch (err: any) {
+      recordLog({
+        endpoint: 'music.commentEmotions',
+        params: { videoId: rawVideoId },
+        durationMs: Date.now() - startTime,
+        status: 'error',
+        error: err.message,
+      });
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Extract real timestamps & comment-mention heatmap for a track/live video
+  app.get('/api/music/timestamps/:videoId', async (req, res) => {
+    const rawVideoId = String(req.params.videoId || '').trim();
+    const title = String(req.query.title || '').trim();
+    const artist = String(req.query.artist || '').trim();
+    const duration = Number(req.query.duration || 0);
+
+    if (!rawVideoId) {
+      return res.status(400).json({ success: false, error: 'videoId is required' });
+    }
+
+    const startTime = Date.now();
+    try {
+      const yt = await getInnertube();
+      const data = await extractTrackTimestampsAndHeatmap(yt, rawVideoId, title, artist, duration);
+      recordLog({
+        endpoint: 'music.timestamps',
+        params: { videoId: rawVideoId },
+        durationMs: Date.now() - startTime,
+        status: 'success',
+        itemCount: data.timestamps.length,
+      });
+      res.json({ success: true, ...data });
+    } catch (err: any) {
+      recordLog({
+        endpoint: 'music.timestamps',
+        params: { videoId: rawVideoId },
+        durationMs: Date.now() - startTime,
+        status: 'error',
+        error: err.message,
+      });
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Fetch genuine live concert/tour setlists for an artist from YouTube live videos & playlists
+  app.get('/api/music/artist-setlists', async (req, res) => {
+    const artistName = String(req.query.artist || '').trim();
+    if (!artistName) {
+      return res.status(400).json({ success: false, error: 'artist is required' });
+    }
+
+    const startTime = Date.now();
+    try {
+      const yt = await getInnertube();
+      const setlists = await fetchRealArtistLiveSetlists(yt, artistName);
+      recordLog({
+        endpoint: 'music.artistSetlists',
+        params: { artist: artistName },
+        durationMs: Date.now() - startTime,
+        status: 'success',
+        itemCount: setlists.length,
+      });
+      res.json({ success: true, artist: artistName, setlists });
+    } catch (err: any) {
+      recordLog({
+        endpoint: 'music.artistSetlists',
+        params: { artist: artistName },
+        durationMs: Date.now() - startTime,
+        status: 'error',
+        error: err.message,
+      });
+      res.status(500).json({ success: false, setlists: [], error: err.message });
+    }
   });
 
 
@@ -2752,17 +2733,17 @@ async function startServer() {
                     const searchQuery = `${rawItem.title} ${cleanArtist}`.trim();
                     try {
                       let sRes = await yt.music.search(searchQuery, { type: 'song' });
-                      let topHit = sRes.songs?.contents?.[0];
+                      let topHit = getSearchShelfContents(sRes, 'songs')[0];
 
                       if (!topHit) {
                         // Fallback 1: search with just track title
                         const sRes2 = await yt.music.search(rawItem.title, { type: 'song' });
-                        topHit = sRes2.songs?.contents?.[0];
+                        topHit = getSearchShelfContents(sRes2, 'songs')[0];
                       }
                       if (!topHit) {
                         // Fallback 2: search video
                         const sRes3 = await yt.music.search(searchQuery, { type: 'video' });
-                        topHit = sRes3.videos?.contents?.[0];
+                        topHit = getSearchShelfContents(sRes3, 'videos')[0];
                       }
 
                       if (topHit) {
@@ -2770,7 +2751,7 @@ async function startServer() {
                           index: i + chunkIdx + 1,
                           id: topHit.id,
                           title: topHit.title?.toString?.() || rawItem.title,
-                          artist: topHit.artists?.[0]?.name || rawItem.artist,
+                          artist: normalizeArtistName(topHit.artists?.[0]?.name || rawItem.artist),
                           album: topHit.album?.name || playlistTitle,
                           duration: topHit.duration?.text || '',
                           durationSeconds:
@@ -2806,7 +2787,7 @@ async function startServer() {
 
               return res.json({
                 title: playlistTitle,
-                author,
+                author: normalizeArtistName(author),
                 thumbnail,
                 tracks,
                 source: 'Spotify',
@@ -2830,7 +2811,7 @@ async function startServer() {
 
       if (!playlistId) {
         const plSearch = await yt.music.search(rawUrl, { type: 'playlist' });
-        const first = plSearch.playlists?.contents?.[0];
+        const first = getSearchShelfContents(plSearch, 'playlists')[0];
         if (first?.id) {
           playlistId = first.id;
         }
@@ -2840,7 +2821,7 @@ async function startServer() {
         const pl = await yt.music.getPlaylist(playlistId);
         const header = {
           title: (pl.header as any)?.title?.toString?.() || 'Imported Playlist',
-          author: (pl.header as any)?.author?.name || 'YouTube Music',
+          author: normalizeArtistName((pl.header as any)?.author?.name || 'YouTube Music'),
           thumbnail: getBestThumbnail((pl.header as any)?.thumbnails || []),
         };
 
@@ -2848,7 +2829,7 @@ async function startServer() {
           index: idx + 1,
           id: item.id || item.video_id,
           title: item.title?.toString?.() || '',
-          artist: item.artists?.[0]?.name || item.author?.name || header.author,
+          artist: extractItemArtist(item, header.author),
           duration: item.duration?.text || '',
           durationSeconds: parseDurationToSeconds(item.duration?.text || ''),
           thumbnail: getBestThumbnail(item.thumbnails || [header.thumbnail]),

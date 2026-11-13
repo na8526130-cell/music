@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { api } from '../services/api';
 import { Track } from '../types/music';
-import { X, Trash2, Play, Plus, Sparkles, Music } from 'lucide-react';
+import { X, Trash2, Play, Plus, Sparkles, Music, Radio } from 'lucide-react';
 import { SafeImage } from './SafeImage';
 
 export const QueueDrawer: React.FC = () => {
@@ -16,6 +16,9 @@ export const QueueDrawer: React.FC = () => {
     removeFromQueue,
     clearQueue,
     addToQueue,
+    endlessRadioActive,
+    toggleEndlessRadio,
+    emotionRadioMood,
   } = usePlayer();
 
   const [relatedTracks, setRelatedTracks] = useState<Track[]>([]);
@@ -97,9 +100,28 @@ export const QueueDrawer: React.FC = () => {
 
         {/* Next Up in Queue */}
         <div>
-          <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block mb-2 px-2">
-            次の曲
-          </span>
+          <div className="flex items-center justify-between mb-2 px-2 gap-2">
+            <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
+              次の曲
+            </span>
+            <button
+              type="button"
+              onClick={toggleEndlessRadio}
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 border transition-colors cursor-pointer ${
+                endlessRadioActive
+                  ? 'bg-red-950/70 border-red-700/50 text-red-300'
+                  : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:text-white'
+              }`}
+              title="YouTubeコメント感情に合う曲を自動補充"
+            >
+              <Radio className="w-3 h-3 text-red-400" />
+              <span>
+                {endlessRadioActive
+                  ? `感情ラジオ: ${emotionRadioMood?.name || '自動補充'}`
+                  : '感情ラジオ OFF'}
+              </span>
+            </button>
+          </div>
           {queue.length <= 1 ? (
             <div className="text-center py-6 text-xs text-neutral-500 px-4">
               キューに待機中の楽曲はありません。

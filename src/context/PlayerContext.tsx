@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Track, ViewType, PlayerMode, VideoLayout, RepeatMode, LyricsData } from '../types/music';
+import {
+  Track,
+  ViewType,
+  PlayerMode,
+  VideoLayout,
+  RepeatMode,
+  LyricsData,
+  TrackTimestampsData,
+} from '../types/music';
 import { api } from '../services/api';
 import { equalizer } from '../services/equalizer';
 import { socialSocket } from '../services/socialSocket';
@@ -71,12 +79,17 @@ interface PlayerContextType {
   setBgGuideOpen: React.Dispatch<React.SetStateAction<boolean>>;
   triggerDocumentPiP: () => Promise<boolean>;
 
-  // Crossfade & Endless Radio & Playlist Import
+  // Crossfade & Endless Emotion Radio & Digest Mode & Playlist Import
   crossfadeDuration: number;
   setCrossfadeDuration: (sec: number) => void;
   endlessRadioActive: boolean;
   toggleEndlessRadio: () => void;
+  emotionRadioMood: { id: string; name: string } | null;
   startRadioForTrack: (seedTrack: Track) => Promise<void>;
+  digestMode: boolean;
+  toggleDigestMode: () => void;
+  digestRemainingSec: number;
+  trackTimestamps: TrackTimestampsData | null;
   importModalOpen: boolean;
   setImportModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -104,6 +117,7 @@ interface PlayerContextType {
   removeFromQueue: (index: number) => void;
   clearQueue: () => void;
   createUserPlaylist: (name: string) => void;
+  saveTracksAsPlaylist: (name: string, tracks: Track[]) => void;
   addToUserPlaylist: (playlistId: string, trackTrack: Track) => void;
   removeFromUserPlaylist: (playlistId: string, trackId: string) => void;
   deleteUserPlaylist: (playlistId: string) => void;
@@ -236,8 +250,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Crossfade duration in seconds (0 = off, 2, 4, 6, 8)
   const [crossfadeDuration, setCrossfadeDuration] = useState<number>(4);
-  // Endless radio station mode
+  // Endless emotion radio station mode
   const [endlessRadioActive, setEndlessRadioActive] = useState<boolean>(true);
+  const [emotionRadioMood, setEmotionRadioMood] = useState<{ id: string; name: string } | null>(null);
+  // Digest 25s highlight mode
+  const [digestMode, setDigestMode] = useState<boolean>(false);
+  const [digestRemainingSec, setDigestRemainingSec] = useState<number>(25);
+  const [trackTimestamps, setTrackTimestamps] = useState<TrackTimestampsData | null>(null);
   // Playlist Import Modal open
   const [importModalOpen, setImportModalOpen] = useState<boolean>(false);
 
@@ -513,6 +532,34 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (!cancelled) {
           setCurrentLyrics(null);
         }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTrack?.id]);
+
+  // Auto-fetch real YouTube timestamps & comment heatmap for active track
+  useEffect(() => {
+    if (!currentTrack || currentTrack.isLocal) {
+      setTrackTimestamps(null);
+      return;
+    }
+    let cancelled = false;
+    setTrackTimestamps(null);
+    api
+      .getTrackTimestamps(
+        currentTrack.id,
+        currentTrack.title,
+        currentTrack.artist,
+        currentTrack.durationSeconds || 0
+      )
+      .then((res) => {
+        if (!cancelled && res && res.success) {
+          setTrackTimestamps(res);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTrackTimestamps(null);
       });
     return () => {
       cancelled = true;
@@ -925,20 +972,41 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       }
 
-      // Auto-fetch related songs in background if queue is short, online, and not local track
+      digestJumpedTrackRef.current = null;
+      digestStartPlaySecRef.current = null;
+
+      // Auto-fetch emotion-matched & related songs in background if queue is short, online, and not local track
       if (!resolvedTrack.isLocal && navigator.onLine) {
-        api.getRelated(resolvedTrack.id).then((related) => {
-          if (related && related.length > 0) {
-            setQueue((curr) => {
-              if (curr.length <= 3) {
-                const existingIds = new Set(curr.map((t) => t.id));
-                const fresh = related.filter((r) => !existingIds.has(r.id)).slice(0, 10);
-                return [...curr, ...fresh];
-              }
-              return curr;
-            });
-          }
-        }).catch(() => {});
+        (async () => {
+          try {
+            const emotionRes = await api.getTrackCommentEmotions(
+              resolvedTrack.id,
+              resolvedTrack.title,
+              resolvedTrack.artist
+            );
+            if (emotionRes?.dominantMood) {
+              setEmotionRadioMood({
+                id: emotionRes.dominantMood,
+                name: emotionRes.dominantMoodName || emotionRes.dominantMood,
+              });
+            }
+            const [moodRec, related] = await Promise.all([
+              emotionRes?.dominantMood ? api.getMoodRecommendation(emotionRes.dominantMood).catch(() => null) : Promise.resolve(null),
+              api.getRelated(resolvedTrack.id).catch(() => []),
+            ]);
+            const pool = [...(moodRec?.tracks || []), ...(related || [])];
+            if (pool.length > 0) {
+              setQueue((curr) => {
+                if (curr.length <= 3) {
+                  const existingIds = new Set(curr.map((t) => t.id));
+                  const fresh = pool.filter((r) => r.id && !existingIds.has(r.id)).slice(0, 8);
+                  return [...curr, ...fresh];
+                }
+                return curr;
+              });
+            }
+          } catch {}
+        })();
       }
     },
     []
@@ -970,6 +1038,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const seekTo = useCallback((seconds: number) => {
     setProgress(seconds);
+    if (digestStartPlaySecRef.current !== null) {
+      digestStartPlaySecRef.current = seconds;
+      setDigestRemainingSec(25);
+    }
     const win = window as any;
     if (win.__localAudio) {
       try {
@@ -1007,6 +1079,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     (isManualSkip = false) => {
       if (queue.length === 0) return;
       isTransitioningEarlyRef.current = false;
+      digestJumpedTrackRef.current = null;
+      digestStartPlaySecRef.current = null;
 
       if (repeatMode === 'one' && !isManualSkip && currentTrack) {
         repeatCurrentTrack();
@@ -1071,16 +1145,62 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
           dispatchPlayCommand();
         }
+      } else if (endlessRadioActive && currentTrack && !currentTrack.isLocal && navigator.onLine) {
+        // Endless Emotion Radio: immediately fetch matching track when hitting queue end
+        (async () => {
+          try {
+            const emotionRes = await api.getTrackCommentEmotions(
+              currentTrack.id,
+              currentTrack.title,
+              currentTrack.artist
+            );
+            const domMood = emotionRes?.dominantMood || 'emotional';
+            setEmotionRadioMood({
+              id: domMood,
+              name: emotionRes?.dominantMoodName || '感情マッチ',
+            });
+            const [moodRec, related] = await Promise.all([
+              api.getMoodRecommendation(domMood).catch(() => null),
+              api.getRelated(currentTrack.id).catch(() => []),
+            ]);
+            const existingIds = new Set(queue.map((t) => t.id));
+            const fresh = [...(moodRec?.tracks || []), ...(related || [])].filter(
+              (r) => r.id && !existingIds.has(r.id)
+            );
+            if (fresh.length > 0) {
+              const nextItem = fresh[0];
+              const newQueue = [...queue, ...fresh.slice(0, 6)];
+              setQueue(newQueue);
+              setQueueIndex(queue.length);
+              setProgress(0);
+              digestJumpedTrackRef.current = null;
+              digestStartPlaySecRef.current = null;
+              setCurrentTrack(nextItem);
+              userIntendedPlayingRef.current = true;
+              setIsPlaying(true);
+              const win = window as any;
+              if (win.__ytPlayer && typeof win.__ytPlayer.loadVideoById === 'function') {
+                win.__ytPlayer.loadVideoById(nextItem.id);
+              }
+              dispatchPlayCommand();
+              return;
+            }
+          } catch {}
+          userIntendedPlayingRef.current = false;
+          setIsPlaying(false);
+        })();
       } else {
         userIntendedPlayingRef.current = false;
         setIsPlaying(false);
       }
     },
-    [queue, queueIndex, repeatMode, isShuffle, currentTrack, repeatCurrentTrack, dispatchPlayCommand]
+    [queue, queueIndex, repeatMode, isShuffle, currentTrack, endlessRadioActive, repeatCurrentTrack, dispatchPlayCommand]
   );
 
   const prevTrack = useCallback(() => {
     isTransitioningEarlyRef.current = false;
+    digestJumpedTrackRef.current = null;
+    digestStartPlaySecRef.current = null;
     if (progress > 3) {
       seekTo(0);
       return;
@@ -1111,96 +1231,187 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [progress, queueIndex, queue, seekTo, dispatchPlayCommand]);
 
-  // MediaSession OS Controls (Lock Screen, Notification Center, Media Keys, Bluetooth)
+  // Refs for stable MediaSession callbacks (prevents 80ms handler churn on iOS/Android)
+  const progressRef = useRef<number>(0);
+  const durationRef = useRef<number>(0);
+  const playbackRateRef = useRef<number>(1.0);
+  const lastPositionSyncRef = useRef<number>(0);
+  const digestJumpedTrackRef = useRef<string | null>(null);
+  const digestStartPlaySecRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
+  useEffect(() => {
+    playbackRateRef.current = playbackRate;
+  }, [playbackRate]);
+
+  // 1) MediaSession Metadata (only updates when track identity/artwork changes)
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    if (!currentTrack) return;
 
-    if (currentTrack) {
-      const artwork = currentTrack.thumbnail
-        ? [
-            { src: currentTrack.thumbnail, sizes: '96x96', type: 'image/jpeg' },
-            { src: currentTrack.thumbnail, sizes: '128x128', type: 'image/jpeg' },
-            { src: currentTrack.thumbnail, sizes: '192x192', type: 'image/jpeg' },
-            { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
-            { src: currentTrack.thumbnail, sizes: '384x384', type: 'image/jpeg' },
-            { src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' },
-          ]
-        : [];
+    const resolveAbsUrl = (url?: string) => {
+      if (!url) return '';
+      if (/^https?:\/\//i.test(url)) return url;
+      if (typeof window !== 'undefined') {
+        return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+      }
+      return url;
+    };
 
+    const ytId = !currentTrack.isLocal && /^[a-zA-Z0-9_-]{11}$/.test(currentTrack.id) ? currentTrack.id : null;
+    const primaryThumb = resolveAbsUrl(currentTrack.thumbnail);
+    const artworkList: MediaImage[] = ytId
+      ? [
+          { src: `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`, sizes: '320x180', type: 'image/jpeg' },
+          { src: `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`, sizes: '480x360', type: 'image/jpeg' },
+          { src: `https://i.ytimg.com/vi/${ytId}/sddefault.jpg`, sizes: '640x480', type: 'image/jpeg' },
+        ]
+      : primaryThumb
+      ? [
+          { src: primaryThumb, sizes: '192x192', type: 'image/jpeg' },
+          { src: primaryThumb, sizes: '512x512', type: 'image/jpeg' },
+        ]
+      : [];
+
+    try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title,
         artist: currentTrack.artist || 'Unknown Artist',
-        album: currentTrack.album || 'YouTube Music',
-        artwork,
+        album: currentTrack.album || 'Zero Music',
+        artwork: artworkList,
       });
+    } catch {
+      // ignore
     }
+  }, [
+    currentTrack?.id,
+    currentTrack?.title,
+    currentTrack?.artist,
+    currentTrack?.album,
+    currentTrack?.thumbnail,
+  ]);
 
-    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+  // 2) MediaSession Action Handlers (stable refs so AirPods / lock screen buttons stay responsive)
+  const mediaActionsRef = useRef({
+    play: () => {},
+    pause: () => {},
+    prev: () => {},
+    next: () => {},
+    seekTo: (_sec: number) => {},
+  });
 
-    try {
-      // Direct synchronous lockscreen/remote play action
-      navigator.mediaSession.setActionHandler('play', () => {
+  useEffect(() => {
+    mediaActionsRef.current = {
+      play: () => {
         userIntendedPlayingRef.current = true;
         setIsPlaying(true);
         dispatchPlayCommand();
-      });
-      navigator.mediaSession.setActionHandler('pause', () => {
+      },
+      pause: () => {
         userIntendedPlayingRef.current = false;
         setIsPlaying(false);
         dispatchPauseCommand();
-      });
-      navigator.mediaSession.setActionHandler('previoustrack', () => prevTrack());
-      navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
-      navigator.mediaSession.setActionHandler('seekto', (details) => {
-        if (details.seekTime !== undefined) seekTo(details.seekTime);
-      });
-      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-        const offset = details.seekOffset || 10;
-        seekTo(Math.max(0, progress - offset));
-      });
-      navigator.mediaSession.setActionHandler('seekforward', (details) => {
-        const offset = details.seekOffset || 10;
-        seekTo(Math.min(duration || 0, progress + offset));
-      });
-      navigator.mediaSession.setActionHandler('stop', () => {
-        userIntendedPlayingRef.current = false;
-        setIsPlaying(false);
-        dispatchPauseCommand();
-      });
-    } catch (e) {
-      console.warn('[MediaSession] Action handler error:', e);
-    }
-  }, [
-    currentTrack,
-    isPlaying,
-    progress,
-    duration,
-    dispatchPlayCommand,
-    dispatchPauseCommand,
-    prevTrack,
-    nextTrack,
-    seekTo,
-  ]);
+      },
+      prev: () => prevTrack(),
+      next: () => nextTrack(true),
+      seekTo: (sec: number) => seekTo(sec),
+    };
+  }, [dispatchPlayCommand, dispatchPauseCommand, prevTrack, nextTrack, seekTo]);
 
-  // Position state update
   useEffect(() => {
-    if (
-      typeof navigator !== 'undefined' &&
-      'mediaSession' in navigator &&
-      duration > 0 &&
-      typeof navigator.mediaSession.setPositionState === 'function'
-    ) {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    const safeBind = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
+      try {
+        ms.setActionHandler(action, handler);
+      } catch {
+        // unsupported action on this browser
+      }
+    };
+
+    safeBind('play', () => mediaActionsRef.current.play());
+    safeBind('pause', () => mediaActionsRef.current.pause());
+    safeBind('previoustrack', () => mediaActionsRef.current.prev());
+    safeBind('nexttrack', () => mediaActionsRef.current.next());
+    safeBind('seekto', (details) => {
+      if (details.seekTime !== undefined) {
+        mediaActionsRef.current.seekTo(details.seekTime);
+        if (
+          typeof ms.setPositionState === 'function' &&
+          durationRef.current > 0
+        ) {
+          try {
+            ms.setPositionState({
+              duration: durationRef.current,
+              playbackRate: playbackRateRef.current || 1,
+              position: Math.min(durationRef.current, Math.max(0, details.seekTime)),
+            });
+          } catch {}
+        }
+      }
+    });
+    safeBind('seekbackward', (details) => {
+      const offset = details.seekOffset || 10;
+      mediaActionsRef.current.seekTo(Math.max(0, progressRef.current - offset));
+    });
+    safeBind('seekforward', (details) => {
+      const offset = details.seekOffset || 10;
+      const maxDur = durationRef.current || 0;
+      mediaActionsRef.current.seekTo(
+        maxDur > 0 ? Math.min(maxDur, progressRef.current + offset) : progressRef.current + offset
+      );
+    });
+    safeBind('stop', () => mediaActionsRef.current.pause());
+
+    return () => {
+      (['play', 'pause', 'previoustrack', 'nexttrack', 'seekto', 'seekbackward', 'seekforward', 'stop'] as MediaSessionAction[]).forEach(
+        (act) => safeBind(act, null)
+      );
+    };
+  }, []);
+
+  // 3) Sync playbackState & throttled setPositionState (every ~1s or on state change)
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    if (duration > 0 && typeof navigator.mediaSession.setPositionState === 'function') {
       try {
         navigator.mediaSession.setPositionState({
           duration: Math.max(0, duration),
-          playbackRate: 1,
+          playbackRate: playbackRate || 1,
+          position: Math.min(duration, Math.max(0, progressRef.current)),
+        });
+        lastPositionSyncRef.current = Date.now();
+      } catch {}
+    }
+  }, [isPlaying, duration, playbackRate]);
+
+  useEffect(() => {
+    if (
+      typeof navigator === 'undefined' ||
+      !('mediaSession' in navigator) ||
+      duration <= 0 ||
+      typeof navigator.mediaSession.setPositionState !== 'function'
+    ) {
+      return;
+    }
+    const now = Date.now();
+    if (now - lastPositionSyncRef.current >= 950) {
+      lastPositionSyncRef.current = now;
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: Math.max(0, duration),
+          playbackRate: playbackRate || 1,
           position: Math.min(duration, Math.max(0, progress)),
         });
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
-  }, [progress, duration]);
+  }, [progress, duration, playbackRate]);
 
   // Document Picture-in-Picture trigger (for desktop Chrome / Edge)
   const triggerDocumentPiP = useCallback(async (): Promise<boolean> => {
@@ -1402,6 +1613,28 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setEndlessRadioActive((prev) => !prev);
   }, []);
 
+  const toggleDigestMode = useCallback(() => {
+    setDigestMode((prev) => {
+      const next = !prev;
+      digestJumpedTrackRef.current = null;
+      digestStartPlaySecRef.current = null;
+      setDigestRemainingSec(25);
+      if (next && currentTrack && duration > 45) {
+        const targetHighlight =
+          trackTimestamps?.highlightStartSec && trackTimestamps.highlightStartSec > 5
+            ? trackTimestamps.highlightStartSec
+            : Math.round(duration * 0.32);
+        digestJumpedTrackRef.current = currentTrack.id;
+        digestStartPlaySecRef.current = targetHighlight;
+        seekTo(targetHighlight);
+        showToast('⚡ ダイジェスト再生 ON（サビ・見どころ25秒連続再生）', 'info', 2500);
+      } else if (!next) {
+        showToast('ダイジェスト再生 OFF', 'info', 1500);
+      }
+      return next;
+    });
+  }, [currentTrack, duration, trackTimestamps, seekTo, showToast]);
+
   const startRadioForTrack = useCallback(
     async (seedTrack: Track) => {
       setEndlessRadioActive(true);
@@ -1458,6 +1691,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       name: name.trim(),
       createdAt: new Date().toISOString(),
       tracks: [],
+    };
+    setUserPlaylists((prev) => [newPl, ...prev]);
+  }, []);
+
+  const saveTracksAsPlaylist = useCallback((name: string, tracks: Track[]) => {
+    if (!name.trim() || !tracks || tracks.length === 0) return;
+    const newPl: UserPlaylist = {
+      id: `pl_${Date.now()}`,
+      name: name.trim(),
+      createdAt: new Date().toISOString(),
+      tracks,
     };
     setUserPlaylists((prev) => [newPl, ...prev]);
   }, []);
@@ -1522,7 +1766,35 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
 
-      // 2. Early gapless transition trigger
+      // 2. Digest Highlight Mode (25s highlight clip per track)
+      if (digestMode && currentTrack && total > 35 && userIntendedPlayingRef.current) {
+        if (digestJumpedTrackRef.current !== currentTrack.id) {
+          const targetStart =
+            trackTimestamps?.highlightStartSec &&
+            trackTimestamps.highlightStartSec > 4 &&
+            trackTimestamps.highlightStartSec < total - 12
+              ? trackTimestamps.highlightStartSec
+              : Math.round(total * 0.32);
+          digestJumpedTrackRef.current = currentTrack.id;
+          digestStartPlaySecRef.current = targetStart;
+          setDigestRemainingSec(25);
+          if (Math.abs(current - targetStart) > 3) {
+            seekTo(targetStart);
+            return;
+          }
+        } else if (digestStartPlaySecRef.current !== null) {
+          const elapsedClip = current - digestStartPlaySecRef.current;
+          const remainingClip = Math.max(0, Math.ceil(25 - elapsedClip));
+          setDigestRemainingSec(remainingClip);
+          if (elapsedClip >= 25 && !isTransitioningEarlyRef.current) {
+            isTransitioningEarlyRef.current = true;
+            nextTrack(true);
+            return;
+          }
+        }
+      }
+
+      // 3. Early gapless transition trigger
       const earlyCutoff = crossfadeDuration > 0 ? Math.min(1.0, crossfadeDuration * 0.25) : 0.4;
       if (
         total > 15 &&
@@ -1534,35 +1806,67 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         nextTrack();
       }
 
-      // 3. Endless Radio auto-replenish queue when reaching near the end
-      if (endlessRadioActive && currentTrack && !isFetchingRadioRef.current) {
+      // 4. Endless Emotion Radio auto-replenish queue (YouTube comment emotion matching)
+      if (endlessRadioActive && currentTrack && !currentTrack.isLocal && !isFetchingRadioRef.current) {
         const remainingTracksInQueue = queue.length - 1 - queueIndex;
         if (remainingTracksInQueue <= 2) {
           isFetchingRadioRef.current = true;
-          api
-            .getRelated(currentTrack.id)
-            .then((related) => {
-              if (related && related.length > 0) {
+          (async () => {
+            try {
+              const emotionRes = await api.getTrackCommentEmotions(
+                currentTrack.id,
+                currentTrack.title,
+                currentTrack.artist
+              );
+              const domMood = emotionRes?.dominantMood || 'emotional';
+              const domName = emotionRes?.dominantMoodName || '感情マッチ';
+              setEmotionRadioMood({ id: domMood, name: domName });
+
+              const moodRec = await api.getMoodRecommendation(domMood);
+              const emotionMatches = moodRec?.tracks || [];
+              const related = emotionMatches.length >= 3 ? [] : await api.getRelated(currentTrack.id);
+              const combined = [...emotionMatches, ...related];
+
+              if (combined.length > 0) {
                 setQueue((curr) => {
                   const existingIds = new Set(curr.map((t) => t.id));
-                  const fresh = related.filter((r) => !existingIds.has(r.id));
-                  if (fresh.length > 0) {
-                    return [...curr, ...fresh];
-                  }
-                  return curr;
+                  const fresh = combined.filter((r) => r.id && !existingIds.has(r.id)).slice(0, 6);
+                  return fresh.length > 0 ? [...curr, ...fresh] : curr;
                 });
               }
-            })
-            .catch((err) => console.warn('Endless radio replenishment error:', err))
-            .finally(() => {
+            } catch (err) {
+              console.warn('Emotion radio replenishment error:', err);
+              try {
+                const related = await api.getRelated(currentTrack.id);
+                if (related && related.length > 0) {
+                  setQueue((curr) => {
+                    const existingIds = new Set(curr.map((t) => t.id));
+                    const fresh = related.filter((r) => !existingIds.has(r.id));
+                    return fresh.length > 0 ? [...curr, ...fresh] : curr;
+                  });
+                }
+              } catch {}
+            } finally {
               setTimeout(() => {
                 isFetchingRadioRef.current = false;
-              }, 4000);
-            });
+              }, 5000);
+            }
+          })();
         }
       }
     },
-    [crossfadeDuration, isMuted, nextTrack, endlessRadioActive, currentTrack, queue.length, queueIndex]
+    [
+      crossfadeDuration,
+      isMuted,
+      nextTrack,
+      endlessRadioActive,
+      currentTrack,
+      queue.length,
+      queueIndex,
+      digestMode,
+      trackTimestamps,
+      seekTo,
+    ]
   );
 
   // State change from YouTube player
@@ -1711,7 +2015,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCrossfadeDuration,
         endlessRadioActive,
         toggleEndlessRadio,
+        emotionRadioMood,
         startRadioForTrack,
+        digestMode,
+        toggleDigestMode,
+        digestRemainingSec,
+        trackTimestamps,
         importModalOpen,
         setImportModalOpen,
 
@@ -1741,6 +2050,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         removeFromQueue,
         clearQueue,
         createUserPlaylist,
+        saveTracksAsPlaylist,
         addToUserPlaylist,
         removeFromUserPlaylist,
         deleteUserPlaylist,

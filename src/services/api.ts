@@ -51,21 +51,68 @@ export const api = {
     }
   },
 
-  async getMoodRecommendation(mood: string, artist?: string): Promise<{
+  async getMoodRecommendation(mood: string, artist?: string, forceRefresh = false): Promise<{
     success: boolean;
     mood: { id: string; name: string; icon: string; tagline: string };
     artist: string | null;
     title: string;
     tagline: string;
     cover: string;
+    analyzedTotalComments?: number;
+    topEmotionTags?: string[];
     tracks: Track[];
   }> {
     const params = new URLSearchParams();
     if (mood) params.append('mood', mood);
     if (artist && artist !== '指定なし' && artist !== 'all') params.append('artist', artist);
+    if (forceRefresh) params.append('refresh', '1');
     const res = await fetch(`/api/music/mood-recommend?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch mood recommendation');
     return res.json();
+  },
+
+  async getTrackCommentEmotions(
+    videoId: string,
+    title?: string,
+    artist?: string
+  ): Promise<import('../types/music').CommentEmotionData & { success: boolean }> {
+    const params = new URLSearchParams();
+    if (title) params.append('title', title);
+    if (artist) params.append('artist', artist);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`/api/music/comment-emotions/${encodeURIComponent(videoId)}${qs}`);
+    if (!res.ok) throw new Error('Failed to analyze YouTube comments');
+    return res.json();
+  },
+
+  async getTrackTimestamps(
+    videoId: string,
+    title?: string,
+    artist?: string,
+    duration?: number
+  ): Promise<import('../types/music').TrackTimestampsData & { success: boolean }> {
+    const params = new URLSearchParams();
+    if (title) params.append('title', title);
+    if (artist) params.append('artist', artist);
+    if (duration && duration > 0) params.append('duration', String(Math.floor(duration)));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`/api/music/timestamps/${encodeURIComponent(videoId)}${qs}`);
+    if (!res.ok) throw new Error('Failed to fetch track timestamps');
+    return res.json();
+  },
+
+  async getArtistSetlists(artistName: string): Promise<{
+    success: boolean;
+    artist: string;
+    setlists: import('../types/music').ArtistLiveSetlist[];
+  }> {
+    try {
+      const res = await fetch(`/api/music/artist-setlists?artist=${encodeURIComponent(artistName)}`);
+      if (!res.ok) return { success: false, artist: artistName, setlists: [] };
+      return res.json();
+    } catch {
+      return { success: false, artist: artistName, setlists: [] };
+    }
   },
 
   async getSpotifyCurated(): Promise<{

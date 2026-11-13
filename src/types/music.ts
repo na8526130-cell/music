@@ -1,3 +1,23 @@
+export interface YouTubeCommentSample {
+  author: string;
+  text: string;
+  likes: string;
+  likesNum?: number;
+  matchedEmotions?: string[];
+}
+
+export interface CommentEmotionData {
+  videoId: string;
+  dominantMood: string;
+  dominantMoodName: string;
+  emotionScores: Record<string, number>;
+  emotionTags: string[];
+  summary: string;
+  sampleComments: YouTubeCommentSample[];
+  analyzedCount: number;
+  source?: string;
+}
+
 export interface Track {
   id: string;
   title: string;
@@ -11,6 +31,7 @@ export interface Track {
   views?: string;
   isLocal?: boolean;
   audioUrl?: string;
+  commentEmotion?: CommentEmotionData;
 }
 
 export interface Artist {
@@ -81,6 +102,46 @@ export interface ExploreData {
   musicVideos: Track[];
   oriconRanking?: OriconTrack[];
   oriconDigital?: OriconTrack[];
+}
+
+export interface TrackTimestampItem {
+  timeSeconds: number;
+  timeLabel: string;
+  label: string;
+  source: 'description' | 'comment';
+  author?: string;
+  likes?: string;
+  likesNum?: number;
+}
+
+export interface HeatMarker {
+  timeSeconds: number;
+  timeLabel: string;
+  percent: number;
+  heat: number; // 0..1
+  mentions: number;
+  topLabel: string;
+}
+
+export interface TrackTimestampsData {
+  videoId: string;
+  durationSeconds: number;
+  timestamps: TrackTimestampItem[];
+  heatMarkers: HeatMarker[];
+  highlightStartSec: number;
+  highlightLabel?: string;
+  totalCommentTimestamps: number;
+}
+
+export interface ArtistLiveSetlist {
+  id: string;
+  title: string;
+  sourceTitle: string;
+  sourceVideoId?: string;
+  sourcePlaylistId?: string;
+  sourceType: 'live-video' | 'playlist';
+  thumbnail: string;
+  tracks: (Track & { setlistIndex: number; timestampSec?: number })[];
 }
 
 export type ViewType = 'home' | 'search' | 'library' | 'artist' | 'album' | 'playlist' | 'party';

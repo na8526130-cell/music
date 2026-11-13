@@ -12,9 +12,10 @@ import {
   ListMusic,
   ExternalLink,
   MessageCircle,
-  Sparkles,
   Loader2,
   Globe,
+  ShieldCheck,
+  Code,
 } from 'lucide-react';
 
 interface ShareModalProps {
@@ -38,6 +39,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [shareUrl, setShareUrl] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
+  const [embedCopied, setEmbedCopied] = useState<boolean>(false);
   const [discordCopied, setDiscordCopied] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
@@ -46,6 +48,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     if (isOpen) {
       setShareType(initialType);
       setCopied(false);
+      setEmbedCopied(false);
       setDiscordCopied(false);
       setError('');
     }
@@ -116,11 +119,42 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   if (!isOpen) return null;
 
+  const copyText = (text: string) => {
+    const fallback = () => {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch {}
+    };
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text).catch(fallback);
+    } else {
+      fallback();
+    }
+  };
+
   const handleCopy = () => {
     if (!shareUrl) return;
-    navigator.clipboard.writeText(shareUrl);
+    copyText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleCopyNocookieEmbed = () => {
+    if (!currentTrack) return;
+    const safeTitle = currentTrack.title.replace(/"/g, '&quot;');
+    const code = `<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/${currentTrack.id}" title="${safeTitle}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
+    copyText(code);
+    setEmbedCopied(true);
+    setTimeout(() => setEmbedCopied(false), 2500);
   };
 
   const handleNativeShare = async () => {
@@ -180,18 +214,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#14151c]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#121216]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-900/30">
+            <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-900/30">
               <Share2 className="w-5 h-5 text-white" />
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-wide">
-                共有リンクを発行（ワンクリックシェア）
+                共有 &amp; nocookie埋め込み
               </h3>
-              <p className="text-xs text-neutral-400">
-                アカウント不要で相手のプレイヤーにそのまま展開
-              </p>
             </div>
           </div>
           <button
@@ -212,7 +243,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               onClick={() => setShareType('track')}
               className={`flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                 shareType === 'track'
-                  ? 'bg-blue-600 text-white shadow-md'
+                  ? 'bg-red-600 text-white shadow-md'
                   : 'text-neutral-400 hover:text-white'
               }`}
             >
@@ -224,7 +255,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               onClick={() => setShareType('playlist')}
               className={`flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                 shareType === 'playlist'
-                  ? 'bg-blue-600 text-white shadow-md'
+                  ? 'bg-red-600 text-white shadow-md'
                   : 'text-neutral-400 hover:text-white'
               }`}
             >
@@ -249,14 +280,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                       {currentTrack.title}
                     </h4>
                     <p className="text-xs text-neutral-400 truncate">{currentTrack.artist}</p>
-                    <span className="text-[11px] text-blue-400 font-mono">
-                      YouTube ID: {currentTrack.id}
+                    <span className="text-[11px] text-red-400 font-mono">
+                      youtube-nocookie.com/embed/{currentTrack.id}
                     </span>
                   </div>
                 </div>
               ) : (
                 <div className="p-4 text-center text-xs text-neutral-400 bg-neutral-900/40 rounded-xl">
-                  現在再生中の楽曲がありません。楽曲を再生してからお試しください。
+                  現在再生中の楽曲がありません。
                 </div>
               )}
             </div>
@@ -358,14 +389,35 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 disabled={!shareUrl || loading}
                 className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 ${
                   copied
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/30'
+                    ? 'bg-neutral-800 text-red-400 border border-red-600/50'
+                    : 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30'
                 } disabled:opacity-40 disabled:cursor-not-allowed`}
               >
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 <span>{copied ? '完了' : 'コピー'}</span>
               </button>
             </div>
+
+            {shareType === 'track' && currentTrack && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={handleCopyNocookieEmbed}
+                  className="w-full py-2.5 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-red-900/50 text-xs font-semibold text-neutral-200 flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2 font-mono text-[11px] truncate">
+                    <ShieldCheck className="w-4 h-4 text-red-500 shrink-0" />
+                    <span className="truncate">
+                      &lt;iframe src=&quot;https://www.youtube-nocookie.com/embed/{currentTrack.id}&quot;&gt;
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-1 text-red-400 shrink-0 ml-2">
+                    {embedCopied ? <Check className="w-3.5 h-3.5" /> : <Code className="w-3.5 h-3.5" />}
+                    <span>{embedCopied ? 'コピー完了' : '埋め込みコピー'}</span>
+                  </span>
+                </button>
+              </div>
+            )}
 
             {error && <p className="text-xs text-red-400">{error}</p>}
           </div>
@@ -384,38 +436,29 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               type="button"
               onClick={handleLineShare}
               disabled={!shareUrl || loading}
-              className="py-2.5 px-3 rounded-xl bg-emerald-950/50 hover:bg-emerald-900/50 border border-emerald-800/40 text-xs text-emerald-300 font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40"
+              className="py-2.5 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-white/5 text-xs text-neutral-200 font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40"
             >
-              <MessageCircle className="w-3.5 h-3.5" />
+              <MessageCircle className="w-3.5 h-3.5 text-red-400" />
               <span>LINE</span>
             </button>
             <button
               type="button"
               onClick={handleDiscordCopy}
               disabled={!currentTrack}
-              className="py-2.5 px-3 rounded-xl bg-[#5865F2]/20 hover:bg-[#5865F2]/30 border border-[#5865F2]/40 text-xs text-[#8ea1e1] font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40"
+              className="py-2.5 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-white/5 text-xs text-neutral-200 font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40"
             >
-              {discordCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : null}
+              {discordCopied ? <Check className="w-3.5 h-3.5 text-red-400" /> : null}
               <span>{discordCopied ? 'コピー完了' : 'Discord共有'}</span>
             </button>
             <button
               type="button"
               onClick={handleNativeShare}
               disabled={!shareUrl || loading}
-              className="py-2.5 px-3 rounded-xl bg-indigo-950/50 hover:bg-indigo-900/50 border border-indigo-800/40 text-xs text-indigo-300 font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40"
+              className="py-2.5 px-3 rounded-xl bg-red-950/50 hover:bg-red-900/50 border border-red-800/40 text-xs text-red-300 font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40"
             >
               <Share2 className="w-3.5 h-3.5" />
               <span>端末シェア</span>
             </button>
-          </div>
-
-          {/* Info Banner */}
-          <div className="p-3 rounded-xl bg-blue-950/30 border border-blue-900/40 text-[11px] text-blue-300 flex items-start gap-2.5">
-            <Sparkles className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-            <div>
-              <strong className="font-semibold block mb-0.5">受信側のメリット</strong>
-              相手はアカウント不要でURLを開くだけで、同じ楽曲・プレイリストが直ちに展開され、高精度同期歌詞付きで再生・自分のライブラリへの保存が可能です。
-            </div>
           </div>
         </div>
       </div>

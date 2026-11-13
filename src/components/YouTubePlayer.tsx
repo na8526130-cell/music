@@ -18,6 +18,9 @@ import {
   VolumeX,
   Sparkles,
   Music,
+  Copy,
+  Check,
+  Zap,
 } from 'lucide-react';
 
 function formatSeconds(secs: number): string {
@@ -31,10 +34,13 @@ function formatSeconds(secs: number): string {
 declare global {
   interface Window {
     YT: any;
+    YTConfig: any;
     onYouTubeIframeAPIReady: () => void;
     __ytPlayer: any;
   }
 }
+
+const YOUTUBE_NOCOOKIE_HOST = 'https://www.youtube-nocookie.com';
 
 // 1-second lossless silent WAV data URI to keep the browser's native AudioSession active in the background
 const SILENT_AUDIO_LOOP =
@@ -67,6 +73,10 @@ export const YouTubePlayer: React.FC = () => {
     onPlayerStateChange,
     onPlayerTrackEnded,
     onPlayerError,
+    trackTimestamps,
+    digestMode,
+    toggleDigestMode,
+    digestRemainingSec,
   } = usePlayer();
 
   const playerRef = useRef<any>(null);
@@ -78,6 +88,43 @@ export const YouTubePlayer: React.FC = () => {
   const localAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const oscillatorRef = useRef<OscillatorNode | null>(null);
+  const [copiedEmbed, setCopiedEmbed] = React.useState(false);
+
+  const copyTextWithFallback = (text: string) => {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text).catch(() => {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  };
+
+  const fallbackCopy = (text: string) => {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      textarea.setSelectionRange(0, text.length);
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCopyNocookieEmbed = () => {
+    if (!currentTrack) return;
+    const safeTitle = currentTrack.title.replace(/"/g, '&quot;');
+    const code = `<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/${currentTrack.id}" title="${safeTitle}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
+    copyTextWithFallback(code);
+    setCopiedEmbed(true);
+    setTimeout(() => setCopiedEmbed(false), 2000);
+  };
 
   // Sync local audio playback (MP3, WAV, FLAC, M4A)
   useEffect(() => {
@@ -118,6 +165,12 @@ export const YouTubePlayer: React.FC = () => {
 
   // Initialize YouTube IFrame API
   useEffect(() => {
+    // Ensure YTConfig uses youtube-nocookie.com BEFORE iframe_api loads
+    window.YTConfig = {
+      ...(window.YTConfig || {}),
+      host: YOUTUBE_NOCOOKIE_HOST,
+    };
+
     if (window.YT && window.YT.Player) {
       initPlayer();
       return;
@@ -126,7 +179,7 @@ export const YouTubePlayer: React.FC = () => {
     if (!document.getElementById('yt-iframe-api-script')) {
       const tag = document.createElement('script');
       tag.id = 'yt-iframe-api-script';
-      // Official API script MUST load from youtube.com; privacy-enhanced mode is set via host parameter below
+      // Official API script loads from youtube.com; YTConfig.host & player host enforce youtube-nocookie.com embeds
       tag.src = 'https://www.youtube.com/iframe_api';
       document.head.appendChild(tag);
     }
@@ -173,10 +226,16 @@ export const YouTubePlayer: React.FC = () => {
     mountEl.id = 'yt-player-frame-mount';
     ytContainerRef.current.appendChild(mountEl);
 
+    // Enforce youtube-nocookie.com host on YTConfig prior to player instantiation
+    window.YTConfig = {
+      ...(window.YTConfig || {}),
+      host: YOUTUBE_NOCOOKIE_HOST,
+    };
+
     const activeTrack = currentTrackRef.current;
     try {
       playerRef.current = new window.YT.Player(mountEl, {
-        host: 'https://www.youtube-nocookie.com',
+        host: YOUTUBE_NOCOOKIE_HOST,
         height: '100%',
         width: '100%',
         videoId: activeTrack ? activeTrack.id : '',
@@ -187,12 +246,29 @@ export const YouTubePlayer: React.FC = () => {
           enablejsapi: 1,
           fs: 1,
           modestbranding: 1,
+          origin: typeof window !== 'undefined' ? window.location.origin : undefined,
           playsinline: 1,
           rel: 0,
         },
         events: {
           onReady: (event: any) => {
             window.__ytPlayer = event.target;
+            // Enforce nocookie domain & cross-origin embed attributes on generated iframe
+            const iframeEl = ytContainerRef.current?.querySelector('iframe');
+            if (iframeEl) {
+              iframeEl.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+              iframeEl.setAttribute(
+                'allow',
+                'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+              );
+              iframeEl.setAttribute('allowfullscreen', '');
+              if (iframeEl.src && /youtube\.com\/embed/i.test(iframeEl.src)) {
+                iframeEl.src = iframeEl.src.replace(
+                  /https?:\/\/(www\.)?youtube\.com\/embed/i,
+                  `${YOUTUBE_NOCOOKIE_HOST}/embed`
+                );
+              }
+            }
             event.target.setVolume(volume);
             if (isMuted) {
               event.target.mute();
@@ -254,6 +330,22 @@ export const YouTubePlayer: React.FC = () => {
         },
       });
       window.__ytPlayer = playerRef.current;
+      // Immediately ensure generated iframe attributes enforce nocookie + strict-origin referrer policy
+      const createdIframe = ytContainerRef.current?.querySelector('iframe');
+      if (createdIframe) {
+        createdIframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+        createdIframe.setAttribute(
+          'allow',
+          'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+        );
+        createdIframe.setAttribute('allowfullscreen', '');
+        if (createdIframe.src && /youtube\.com\/embed/i.test(createdIframe.src)) {
+          createdIframe.src = createdIframe.src.replace(
+            /https?:\/\/(www\.)?youtube\.com\/embed/i,
+            `${YOUTUBE_NOCOOKIE_HOST}/embed`
+          );
+        }
+      }
     } catch (e) {
       console.error('[YouTubePlayer] Error creating YT.Player:', e);
     }
@@ -344,6 +436,14 @@ export const YouTubePlayer: React.FC = () => {
   const lastTrackIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!currentTrack || !playerRef.current) return;
+
+    const iframeEl = ytContainerRef.current?.querySelector('iframe');
+    if (iframeEl && iframeEl.src && /youtube\.com\/embed/i.test(iframeEl.src)) {
+      iframeEl.src = iframeEl.src.replace(
+        /https?:\/\/(www\.)?youtube\.com\/embed/i,
+        `${YOUTUBE_NOCOOKIE_HOST}/embed`
+      );
+    }
 
     if (lastTrackIdRef.current !== currentTrack.id) {
       lastTrackIdRef.current = currentTrack.id;
@@ -472,12 +572,28 @@ export const YouTubePlayer: React.FC = () => {
                 <span>YouTube 公式MVシアター</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
               </span>
+              <button
+                type="button"
+                onClick={handleCopyNocookieEmbed}
+                disabled={!currentTrack}
+                className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full bg-neutral-900 hover:bg-neutral-800 border border-red-900/50 text-[10px] font-mono text-neutral-200 hover:text-white shrink-0 cursor-pointer transition-colors disabled:opacity-40"
+                title="youtube-nocookie.com 埋め込みHTMLをコピー"
+              >
+                {copiedEmbed ? (
+                  <Check className="w-3 h-3 text-red-500" />
+                ) : (
+                  <ShieldCheck className="w-3 h-3 text-red-500" />
+                )}
+                <span className="sm:hidden">{copiedEmbed ? 'コピー完了' : 'nocookie'}</span>
+                <span className="hidden sm:inline">{copiedEmbed ? 'nocookieコピー完了' : 'youtube-nocookie.com'}</span>
+                {!copiedEmbed && <Copy className="w-2.5 h-2.5 opacity-60" />}
+              </button>
               <div className="min-w-0">
                 <h3 className="text-white font-extrabold text-sm sm:text-base truncate drop-shadow-md">
-                  {currentTrack ? currentTrack.title : 'ミュージックビデオ（MV）モード'}
+                  {currentTrack ? currentTrack.title : 'MVシアター'}
                 </h3>
                 <p className="text-xs text-neutral-400 truncate">
-                  {currentTrack ? currentTrack.artist : '楽曲を選択するとMVが再生されます'}
+                  {currentTrack ? currentTrack.artist : '曲を選択'}
                 </p>
               </div>
             </div>
@@ -541,9 +657,9 @@ export const YouTubePlayer: React.FC = () => {
               : 'w-full h-full relative'
           }`}
         >
-          {/* Ambient neon backlight in theater mode */}
+          {/* Ambient red & black backlight in theater mode */}
           {playerMode === 'video' && videoLayout === 'theater' && (
-            <div className="absolute -inset-2 bg-gradient-to-r from-red-600/30 via-purple-600/25 to-blue-600/30 rounded-3xl blur-2xl -z-10 pointer-events-none" />
+            <div className="absolute -inset-2 bg-gradient-to-r from-red-700/25 via-red-950/20 to-black rounded-3xl blur-2xl -z-10 pointer-events-none" />
           )}
 
           <div
@@ -570,6 +686,18 @@ export const YouTubePlayer: React.FC = () => {
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
+                    onClick={handleCopyNocookieEmbed}
+                    className="text-neutral-300 hover:text-white p-1 rounded hover:bg-white/10 transition-colors cursor-pointer"
+                    title="youtube-nocookie.com 埋め込みHTMLをコピー"
+                  >
+                    {copiedEmbed ? (
+                      <Check className="w-3.5 h-3.5 text-red-500" />
+                    ) : (
+                      <ShieldCheck className="w-3.5 h-3.5 text-red-400" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setVideoLayout('theater')}
                     className="text-neutral-300 hover:text-white p-1 rounded hover:bg-white/10 transition-colors cursor-pointer"
                     title="大画面シアターモードに拡大"
@@ -592,9 +720,9 @@ export const YouTubePlayer: React.FC = () => {
             {playerMode === 'video' && videoLayout === 'theater' && !currentTrack && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center bg-neutral-900/90 text-white pointer-events-auto">
                 <Tv className="w-12 h-12 text-red-500 mb-3 animate-pulse" />
-                <h4 className="text-lg font-bold mb-1">公式ミュージックビデオ（MV）シアター</h4>
+                <h4 className="text-lg font-bold mb-1">公式MVシアター</h4>
                 <p className="text-xs text-neutral-400 max-w-md mb-4">
-                  楽曲を選択すると、YouTube公式MV（プライバシー保護・nocookie対応）が高画質シアターモードで再生されます。
+                  youtube-nocookie.com 埋め込み再生
                 </p>
                 <button
                   type="button"
@@ -611,17 +739,25 @@ export const YouTubePlayer: React.FC = () => {
         {/* Theater View: Bottom Cinema Controls */}
         {playerMode === 'video' && videoLayout === 'theater' && currentTrack && (
           <div className="w-full max-w-5xl mx-auto pt-3 shrink-0">
-            {/* Scrub Bar */}
+            {/* Scrub Bar with Comment Heatmap Markers */}
             <div
-              className="w-full h-1.5 bg-neutral-800 rounded-full cursor-pointer relative overflow-hidden group hover:h-2 transition-all mb-2"
+              className="w-full h-1.5 bg-neutral-800 rounded-full cursor-pointer relative overflow-hidden group hover:h-2.5 transition-all mb-2"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
                 seekTo(pos * duration);
               }}
             >
+              {trackTimestamps?.heatMarkers?.map((m, idx) => (
+                <span
+                  key={idx}
+                  title={`${m.timeLabel} ${m.topLabel}`}
+                  className="absolute top-0 bottom-0 w-1.5 -translate-x-1/2 bg-red-500 rounded-full z-10 pointer-events-none"
+                  style={{ left: `${m.percent}%`, opacity: 0.45 + m.heat * 0.55 }}
+                />
+              ))}
               <div
-                className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full relative"
+                className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full relative z-20"
                 style={{
                   width: `${duration > 0 ? Math.min(100, (progress / duration) * 100) : 0}%`,
                 }}
@@ -660,7 +796,37 @@ export const YouTubePlayer: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={toggleDigestMode}
+                  className={`px-2.5 py-1 rounded-lg flex items-center gap-1 border transition-colors cursor-pointer ${
+                    digestMode
+                      ? 'bg-red-600 text-white border-red-400 font-bold'
+                      : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800'
+                  }`}
+                  title="サビ・見どころ25秒ダイジェスト再生"
+                >
+                  <Zap className={`w-3.5 h-3.5 ${digestMode ? 'fill-white' : 'text-red-400'}`} />
+                  <span className="text-[11px] font-mono">
+                    {digestMode ? `${digestRemainingSec}s` : 'ダイジェスト'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyNocookieEmbed}
+                  className="px-2.5 py-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-200 hover:text-white flex items-center gap-1.5 border border-red-900/50 transition-colors cursor-pointer"
+                  title="youtube-nocookie.com 埋め込みHTMLをコピー"
+                >
+                  {copiedEmbed ? (
+                    <Check className="w-3.5 h-3.5 text-red-500" />
+                  ) : (
+                    <ShieldCheck className="w-3.5 h-3.5 text-red-500" />
+                  )}
+                  <span className="text-[11px] font-mono">
+                    {copiedEmbed ? 'コピー完了' : 'nocookie埋め込み'}
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setLyricsOpen(true)}

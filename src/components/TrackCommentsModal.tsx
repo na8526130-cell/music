@@ -3,6 +3,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { api } from '../services/api';
 import { socialSocket } from '../services/socialSocket';
 import { TrackComment } from '../types/social';
+import { CommentEmotionData } from '../types/music';
 import { SafeImage } from './SafeImage';
 import {
   X,
@@ -17,6 +18,9 @@ import {
   Check,
   Eye,
   EyeOff,
+  ThumbsUp,
+  Loader2,
+  Flame,
 } from 'lucide-react';
 
 const DANMAKU_COLORS = [
@@ -48,6 +52,7 @@ export const TrackCommentsModal: React.FC<{ isOpen: boolean; onClose: () => void
     danmakuEnabled,
     setDanmakuEnabled,
     isAdmin,
+    trackTimestamps,
   } = usePlayer();
 
   const [comments, setComments] = useState<TrackComment[]>([]);
@@ -60,6 +65,10 @@ export const TrackCommentsModal: React.FC<{ isOpen: boolean; onClose: () => void
   const [reportModalComment, setReportModalComment] = useState<TrackComment | null>(null);
   const [reportReason, setReportReason] = useState('不適切な表現・スパム');
   const [reportSuccess, setReportSuccess] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<'danmaku' | 'youtube' | 'timestamps'>('youtube');
+  const [ytEmotion, setYtEmotion] = useState<CommentEmotionData | null>(null);
+  const [ytLoading, setYtLoading] = useState(false);
 
   // Sync custom time with player progress when modal opens or user clicks current time
   useEffect(() => {
@@ -81,6 +90,11 @@ export const TrackCommentsModal: React.FC<{ isOpen: boolean; onClose: () => void
   useEffect(() => {
     if (!isOpen || !currentTrack) return;
     loadComments();
+    setYtLoading(true);
+    api.getTrackCommentEmotions(currentTrack.id, currentTrack.title, currentTrack.artist)
+      .then((res) => setYtEmotion(res))
+      .catch(() => setYtEmotion(null))
+      .finally(() => setYtLoading(false));
 
     const unsubNew = socialSocket.on('comment:new', (payload: any) => {
       if (payload.videoId === currentTrack.id && payload.comment) {
@@ -254,43 +268,205 @@ export const TrackCommentsModal: React.FC<{ isOpen: boolean; onClose: () => void
           </div>
         </div>
 
-        {/* Filter / Sort bar */}
-        <div className="px-4 py-2.5 bg-neutral-900/50 border-b border-neutral-800/60 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1">
-            <span className="text-neutral-400 mr-1">並び順:</span>
+        {/* Mode Tabs & Filter bar */}
+        <div className="px-4 py-2.5 bg-neutral-900/50 border-b border-neutral-800/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setSortMode('timestamp')}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer font-medium ${
-                sortMode === 'timestamp'
-                  ? 'bg-neutral-800 text-white font-bold'
-                  : 'text-neutral-400 hover:text-white'
+              onClick={() => setActiveTab('youtube')}
+              className={`px-3 py-1 rounded-full transition-colors cursor-pointer font-bold ${
+                activeTab === 'youtube'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-neutral-800/80 text-neutral-400 hover:text-white'
               }`}
             >
-              再生位置（秒数順）
+              YouTubeコメント感情 {ytEmotion?.analyzedCount ? `(${ytEmotion.analyzedCount})` : ''}
             </button>
             <button
               type="button"
-              onClick={() => setSortMode('newest')}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer font-medium ${
-                sortMode === 'newest'
-                  ? 'bg-neutral-800 text-white font-bold'
-                  : 'text-neutral-400 hover:text-white'
+              onClick={() => setActiveTab('timestamps')}
+              className={`px-3 py-1 rounded-full transition-colors cursor-pointer font-bold ${
+                activeTab === 'timestamps'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-neutral-800/80 text-neutral-400 hover:text-white'
               }`}
             >
-              最新投稿順
+              見どころ・目次 {trackTimestamps?.timestamps?.length ? `(${trackTimestamps.timestamps.length})` : ''}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('danmaku')}
+              className={`px-3 py-1 rounded-full transition-colors cursor-pointer font-bold ${
+                activeTab === 'danmaku'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-neutral-800/80 text-neutral-400 hover:text-white'
+              }`}
+            >
+              タイムスタンプコメント ({comments.length})
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setCustomTimeSec(Math.floor(progress))}
-            className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-mono cursor-pointer transition-colors"
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>現在再生位置: {formatSeconds(progress)}</span>
-          </button>
+          {activeTab === 'danmaku' && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setSortMode('timestamp')}
+                className={`px-2 py-1 rounded-md transition-colors cursor-pointer font-medium ${
+                  sortMode === 'timestamp'
+                    ? 'bg-neutral-800 text-white font-bold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                秒数順
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortMode('newest')}
+                className={`px-2 py-1 rounded-md transition-colors cursor-pointer font-medium ${
+                  sortMode === 'newest'
+                    ? 'bg-neutral-800 text-white font-bold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                最新順
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Content Body */}
+        {activeTab === 'timestamps' ? (
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[240px]">
+            {trackTimestamps && trackTimestamps.heatMarkers.length > 0 && (
+              <div className="p-3 rounded-xl bg-red-950/25 border border-red-700/40 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-red-200 font-semibold">
+                  <Flame className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>
+                    最も盛り上がる見どころ: {formatSeconds(trackTimestamps.highlightStartSec)}
+                    {trackTimestamps.highlightLabel ? ` (${trackTimestamps.highlightLabel})` : ''}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => seekTo(trackTimestamps.highlightStartSec)}
+                  className="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold shrink-0 cursor-pointer"
+                >
+                  ジャンプ
+                </button>
+              </div>
+            )}
+
+            {trackTimestamps && trackTimestamps.timestamps.length > 0 ? (
+              <div className="space-y-2">
+                {trackTimestamps.timestamps.map((item, idx) => (
+                  <button
+                    key={`${item.timeSeconds}-${idx}`}
+                    type="button"
+                    onClick={() => seekTo(item.timeSeconds)}
+                    className="w-full p-3 rounded-xl bg-neutral-900/70 hover:bg-neutral-900 border border-neutral-800 hover:border-red-600/50 flex items-center justify-between gap-3 text-left transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="px-2.5 py-1 rounded-md bg-red-600/20 border border-red-500/40 text-red-400 font-mono text-xs font-bold flex items-center gap-1 shrink-0">
+                        <Play className="w-3 h-3 fill-current" />
+                        <span>{item.timeLabel}</span>
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm font-semibold text-white truncate">
+                          {item.label}
+                        </p>
+                        {item.author && (
+                          <p className="text-[11px] text-neutral-400 truncate">
+                            {item.author}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[11px] text-neutral-400 font-mono shrink-0">
+                      {item.source === 'description' ? '概要欄' : `👍 ${item.likes || '0'}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 text-center text-xs text-neutral-500">
+                この動画の概要欄・コメントからタイムスタンプが見つかりませんでした
+              </div>
+            )}
+          </div>
+        ) : activeTab === 'youtube' ? (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[240px]">
+            {ytLoading ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-2 text-xs text-neutral-400">
+                <Loader2 className="w-6 h-6 animate-spin text-red-500" />
+                <span>YouTubeコメントを取得して感情を抽出中...</span>
+              </div>
+            ) : !ytEmotion ? (
+              <div className="py-12 text-center text-xs text-neutral-500">
+                YouTubeコメントを取得できませんでした
+              </div>
+            ) : (
+              <>
+                <div className="p-3.5 rounded-xl bg-red-950/25 border border-red-700/40 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="px-2.5 py-0.5 rounded bg-red-600 text-white text-xs font-black">
+                      最多感情: {ytEmotion.dominantMoodName}
+                    </span>
+                    <span className="text-[11px] text-neutral-400 font-mono">
+                      {ytEmotion.analyzedCount}件のコメントから抽出
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-200 font-medium">{ytEmotion.summary}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ytEmotion.emotionTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="px-2 py-0.5 rounded bg-black/60 border border-red-800/40 text-[11px] font-semibold text-red-300"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+                    実際のYouTubeコメント
+                  </div>
+                  {ytEmotion.sampleComments.map((c, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl bg-neutral-900/70 border border-neutral-800/80 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-neutral-400">
+                        <span className="font-bold text-neutral-200 truncate">{c.author}</span>
+                        <span className="flex items-center gap-1 shrink-0 font-mono">
+                          <ThumbsUp className="w-3 h-3 text-red-500" />
+                          {c.likes}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-200 leading-relaxed whitespace-pre-wrap">
+                        {c.text}
+                      </p>
+                      {c.matchedEmotions && c.matchedEmotions.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {c.matchedEmotions.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-1.5 py-0.5 rounded bg-red-950/60 border border-red-800/40 text-[10px] text-red-300"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+        <>
 
         {/* Comments List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5 min-h-[220px]">
@@ -455,6 +631,8 @@ export const TrackCommentsModal: React.FC<{ isOpen: boolean; onClose: () => void
             </button>
           </div>
         </form>
+        </>
+        )}
 
         {/* Report Modal Backdrop */}
         {reportModalComment && (

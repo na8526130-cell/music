@@ -26,6 +26,9 @@ import {
   Gauge,
   Volume2,
   Award,
+  Zap,
+  Clock,
+  Flame,
 } from 'lucide-react';
 
 function formatSeconds(secs: number): string {
@@ -70,11 +73,19 @@ export const FullScreenPlayerModal: React.FC = () => {
     audioQuality,
     setAudioQuality,
     setWrappedModalOpen,
+    digestMode,
+    toggleDigestMode,
+    digestRemainingSec,
+    trackTimestamps,
+    endlessRadioActive,
+    toggleEndlessRadio,
+    emotionRadioMood,
   } = usePlayer();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
   const [inlineLyricsExpanded, setInlineLyricsExpanded] = useState(false);
+  const [timestampsExpanded, setTimestampsExpanded] = useState(false);
 
   if (!fullScreenPlayerOpen || !currentTrack) return null;
 
@@ -297,14 +308,31 @@ export const FullScreenPlayerModal: React.FC = () => {
             </button>
           </div>
 
-          {/* Scrubber Timeline */}
+          {/* Scrubber Timeline with YouTube Comment Heatmap Markers */}
           <div className="space-y-1.5">
             <div
-              className="relative h-1.5 bg-white/20 hover:h-2.5 rounded-full cursor-pointer group transition-all"
+              className="relative h-2 bg-white/20 hover:h-3 rounded-full cursor-pointer group transition-all"
               onClick={handleProgressClick}
             >
+              {trackTimestamps?.heatMarkers?.map((m, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    seekTo(m.timeSeconds);
+                  }}
+                  title={`${m.timeLabel} ${m.topLabel} (${m.mentions}件の言及)`}
+                  className="absolute -top-0.5 -bottom-0.5 w-2 -translate-x-1/2 rounded-full bg-red-500 z-10 cursor-pointer hover:scale-125 transition-transform"
+                  style={{
+                    left: `${m.percent}%`,
+                    opacity: 0.45 + m.heat * 0.55,
+                    boxShadow: m.heat > 0.6 ? '0 0 8px rgba(239,68,68,0.95)' : undefined,
+                  }}
+                />
+              ))}
               <div
-                className="h-full bg-red-600 rounded-full relative group-hover:bg-red-500 transition-colors"
+                className="h-full bg-red-600 rounded-full relative group-hover:bg-red-500 transition-colors z-20 pointer-events-none"
                 style={{ width: `${percent}%` }}
               >
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md scale-0 group-hover:scale-100 transition-transform" />
@@ -313,6 +341,17 @@ export const FullScreenPlayerModal: React.FC = () => {
 
             <div className="flex items-center justify-between text-xs font-mono text-neutral-400 tabular-nums">
               <span>{formatSeconds(progress)}</span>
+              {trackTimestamps && trackTimestamps.heatMarkers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => seekTo(trackTimestamps.highlightStartSec)}
+                  className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 cursor-pointer"
+                  title="一番盛り上がっているポイントへジャンプ"
+                >
+                  <Flame className="w-3 h-3" />
+                  <span>見どころ {formatSeconds(trackTimestamps.highlightStartSec)}</span>
+                </button>
+              )}
               <span>{formatSeconds(duration)}</span>
             </div>
           </div>
@@ -400,7 +439,7 @@ export const FullScreenPlayerModal: React.FC = () => {
           </div>
 
           {/* Bottom Action Utilities */}
-          <div className="flex items-center justify-between pt-2 text-neutral-400 border-t border-white/5 relative">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-neutral-400 border-t border-white/5 relative">
             {/* Speed Control Pill */}
             <div className="relative">
               <button
@@ -444,10 +483,65 @@ export const FullScreenPlayerModal: React.FC = () => {
               )}
             </div>
 
+            {/* Digest 25s Mode Pill */}
             <button
               type="button"
-              onClick={() => setInlineLyricsExpanded((prev) => !prev)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              onClick={toggleDigestMode}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+                digestMode
+                  ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                  : 'bg-white/10 text-neutral-300 hover:text-white'
+              }`}
+              title="サビ・盛り上がり箇所を25秒連続再生"
+            >
+              <Zap className={`w-3.5 h-3.5 ${digestMode ? 'fill-white' : ''}`} />
+              <span>{digestMode ? `ダイジェスト ${digestRemainingSec}s` : 'ダイジェスト'}</span>
+            </button>
+
+            {/* Emotion Radio Pill */}
+            <button
+              type="button"
+              onClick={toggleEndlessRadio}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                endlessRadioActive
+                  ? 'bg-red-950/80 text-red-300 border border-red-700/50'
+                  : 'bg-white/10 text-neutral-400 hover:text-white'
+              }`}
+              title="YouTubeコメント感情に合う曲を自動補充"
+            >
+              <Radio className="w-3.5 h-3.5" />
+              <span className="max-w-[78px] truncate">
+                {endlessRadioActive && emotionRadioMood ? emotionRadioMood.name : '感情ラジオ'}
+              </span>
+            </button>
+
+            {/* Timestamps / Chapters Pill */}
+            <button
+              type="button"
+              onClick={() => {
+                setTimestampsExpanded((prev) => !prev);
+                setInlineLyricsExpanded(false);
+              }}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                timestampsExpanded
+                  ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                  : 'bg-white/10 text-neutral-300 hover:text-white'
+              }`}
+              title="見どころ・タイムスタンプ"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>
+                見どころ{trackTimestamps?.timestamps?.length ? ` (${trackTimestamps.timestamps.length})` : ''}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setInlineLyricsExpanded((prev) => !prev);
+                setTimestampsExpanded(false);
+              }}
+              className={`px-3 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                 inlineLyricsExpanded
                   ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
                   : 'bg-white/10 text-neutral-300 hover:text-white hover:bg-white/20'
@@ -460,22 +554,70 @@ export const FullScreenPlayerModal: React.FC = () => {
             <button
               type="button"
               onClick={() => openShareModal('track')}
-              className="p-2 hover:text-white transition-colors cursor-pointer"
+              className="p-1.5 hover:text-white transition-colors cursor-pointer"
               title="共有"
             >
-              <Share2 className="w-5 h-5" />
+              <Share2 className="w-4 h-4" />
             </button>
 
             <button
               type="button"
               onClick={() => setQueueOpen(true)}
-              className="p-2 hover:text-white transition-colors cursor-pointer"
+              className="p-1.5 hover:text-white transition-colors cursor-pointer"
               title="再生キュー"
             >
-              <ListMusic className="w-5 h-5" />
+              <ListMusic className="w-4 h-4" />
             </button>
           </div>
         </div>
+
+        {/* Inline Timestamps / Setlist Jump Sheet */}
+        {timestampsExpanded && (
+          <div className="mt-6 p-4 rounded-2xl bg-gradient-to-b from-red-950/60 to-black/90 border border-red-500/20 shadow-2xl space-y-3 animate-in slide-in-from-bottom-4 duration-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                <span>曲中の見どころ・タイムスタンプ</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setTimestampsExpanded(false)}
+                className="text-neutral-400 hover:text-white p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {trackTimestamps && trackTimestamps.timestamps.length > 0 ? (
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {trackTimestamps.timestamps.map((item, idx) => (
+                  <button
+                    key={`${item.timeSeconds}-${idx}`}
+                    type="button"
+                    onClick={() => seekTo(item.timeSeconds)}
+                    className="w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl bg-black/50 hover:bg-red-950/50 border border-white/5 hover:border-red-600/40 text-left transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="px-2 py-0.5 rounded bg-red-600/25 border border-red-500/40 text-red-400 font-mono text-xs font-bold shrink-0">
+                        {item.timeLabel}
+                      </span>
+                      <span className="text-xs text-neutral-100 font-medium truncate">
+                        {item.label}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-neutral-500 shrink-0">
+                      {item.source === 'description' ? '概要欄' : `👍 ${item.likes || '0'}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-neutral-400 py-4 text-center">
+                タイムスタンプ付きコメント・概要欄チャプターは見つかりませんでした
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Inline Lyrics Preview Card (Spotify-style expandable lyrics sheet) */}
         {inlineLyricsExpanded && (
