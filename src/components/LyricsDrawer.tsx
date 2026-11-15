@@ -3,6 +3,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { api } from '../services/api';
 import { LyricsData, SyncedLine } from '../types/music';
 import { SafeImage } from './SafeImage';
+import { isSameArtist } from '../utils/artistNames';
 import {
   X,
   Copy,
@@ -19,6 +20,9 @@ import {
   RotateCcw,
   ListPlus,
   Zap,
+  UserCheck,
+  AlertTriangle,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 function formatSeconds(secs: number): string {
@@ -38,10 +42,16 @@ export const LyricsDrawer: React.FC = () => {
     duration,
     seekTo,
     openAddToPlaylistModal,
+    currentLyrics,
+    lyricsLoading,
+    hasManualLyricsOverride,
+    overrideCurrentLyrics,
+    clearLyricsOverride,
+    lyricsSwitcherTrigger,
   } = usePlayer();
 
-  const [data, setData] = useState<LyricsData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const data = currentLyrics;
+  const loading = lyricsLoading;
   const [copied, setCopied] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large'>('large');
   const [isImmersive, setIsImmersive] = useState(false);
@@ -52,59 +62,86 @@ export const LyricsDrawer: React.FC = () => {
   const [timingOffset, setTimingOffset] = useState<number>(0);
   const [showOffsetControls, setShowOffsetControls] = useState(false);
 
-  // Manual lyrics search
+  // Manual lyrics search & candidate switcher
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const lastSearchedTrackIdRef = useRef<string | null>(null);
+  const lastTriggerRef = useRef<number>(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const userScrollTimeoutRef = useRef<any>(null);
   const activeLineElementRef = useRef<HTMLDivElement | null>(null);
 
-  // Reset offset and fetch lyrics on track change
+  const matchedArtist = data?.matchedArtist?.trim() || '';
+  const matchedTitle = data?.matchedTitle?.trim() || '';
+  const isArtistMismatch = Boolean(
+    currentTrack?.artist && matchedArtist && !isSameArtist(matchedArtist, currentTrack.artist)
+  );
+
+  // Reset UI controls when track changes
   useEffect(() => {
-    if (!lyricsOpen || !currentTrack) return;
-    let cancelled = false;
-    setLoading(true);
-    setData(null);
     setUserScrolled(false);
     setTimingOffset(0);
     setSearchOpen(false);
+    setSearchResults([]);
+    lastSearchedTrackIdRef.current = null;
+  }, [currentTrack?.id]);
 
-    api
-      .getLyrics(
-        currentTrack.id,
-        currentTrack.title,
-        currentTrack.artist,
-        currentTrack.durationSeconds || duration
-      )
-      .then((res) => {
-        if (!cancelled) {
-          setData(res);
-          if (typeof res.globalOffset === 'number' && res.globalOffset !== 0) {
-            setTimingOffset(res.globalOffset);
-          }
-          setViewMode(res.isSynced && res.syncedLyrics && res.syncedLyrics.length > 0 ? 'synced' : 'plain');
-          setLoading(false);
-          api.recordLyricsTelemetry({
-            isSynced: !!res.isSynced,
-            isAvailable: !!res.available,
-          });
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setData({ available: false, isSynced: false, lyrics: '', error: err.message });
-          setLoading(false);
-          api.recordLyricsTelemetry({ isSynced: false, isAvailable: false });
-        }
+  // Sync viewMode / offset / telemetry when lyrics data updates
+  useEffect(() => {
+    if (!data) return;
+    if (typeof data.globalOffset === 'number' && data.globalOffset !== 0) {
+      setTimingOffset(data.globalOffset);
+    }
+    setViewMode(data.isSynced && data.syncedLyrics && data.syncedLyrics.length > 0 ? 'synced' : 'plain');
+    if (lyricsOpen) {
+      api.recordLyricsTelemetry({
+        isSynced: !!data.isSynced,
+        isAvailable: !!data.available,
       });
+    }
+  }, [data, lyricsOpen]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [lyricsOpen, currentTrack?.id]);
+  const runCandidateSearch = async (query: string) => {
+    const q = query.trim();
+    if (!q) return;
+    setSearchLoading(true);
+    try {
+      const results = await api.searchLyrics(q);
+      setSearchResults(results);
+      if (currentTrack) {
+        lastSearchedTrackIdRef.current = currentTrack.id;
+      }
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const openSwitcherPanel = (customQuery?: string) => {
+    setSearchOpen(true);
+    if (!currentTrack) return;
+    const defaultQuery =
+      customQuery ??
+      (isArtistMismatch
+        ? `${currentTrack.title} ${currentTrack.artist || ''}`.trim()
+        : currentTrack.title.trim());
+    setSearchQuery(defaultQuery);
+    if (customQuery || lastSearchedTrackIdRef.current !== currentTrack.id || searchResults.length === 0) {
+      runCandidateSearch(defaultQuery);
+    }
+  };
+
+  // Open switcher immediately when requested externally (e.g. FullScreenPlayerModal)
+  useEffect(() => {
+    if (lyricsSwitcherTrigger > 0 && lyricsSwitcherTrigger !== lastTriggerRef.current) {
+      lastTriggerRef.current = lyricsSwitcherTrigger;
+      openSwitcherPanel();
+    }
+  }, [lyricsSwitcherTrigger, currentTrack?.id]);
 
   // Determine active singing line with timing offset applied
   const effectiveProgress = progress + timingOffset;
@@ -184,26 +221,22 @@ export const LyricsDrawer: React.FC = () => {
 
   const handleManualSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
-    setSearchLoading(true);
-    try {
-      const results = await api.searchLyrics(searchQuery.trim());
-      setSearchResults(results);
-    } catch {
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false);
-    }
+    await runCandidateSearch(searchQuery);
   };
 
   const handleApplySearchResult = (item: any) => {
-    setData({
+    if (!currentTrack) return;
+    const nextLyrics: LyricsData = {
       available: true,
-      isSynced: item.isSynced,
+      isSynced: !!item.isSynced,
       syncedLyrics: item.syncedLyrics || [],
       lyrics: item.plainLyrics || (item.syncedLyrics ? item.syncedLyrics.map((l: any) => l.text).join('\n') : ''),
-      source: `手動検索: ${item.trackName} - ${item.artistName}`,
-    });
+      source: `手動選択 (${item.source || '歌詞検索'})`,
+      matchedTitle: item.trackName || currentTrack.title,
+      matchedArtist: item.artistName || '',
+      matchedTrackName: `${item.trackName}${item.artistName ? ` - ${item.artistName}` : ''}`,
+    };
+    overrideCurrentLyrics(currentTrack.id, nextLyrics);
     setViewMode(item.isSynced ? 'synced' : 'plain');
     setSearchOpen(false);
     setUserScrolled(false);
@@ -211,7 +244,7 @@ export const LyricsDrawer: React.FC = () => {
 
   return (
     <aside
-      className={`fixed inset-y-0 right-0 z-50 bg-[#0a0a0d]/98 border-l border-neutral-800 shadow-2xl flex flex-col backdrop-blur-3xl transition-all duration-300 ${
+      className={`fixed inset-y-0 right-0 z-[60] bg-[#0a0a0d]/98 border-l border-neutral-800 shadow-2xl flex flex-col backdrop-blur-3xl transition-all duration-300 ${
         isImmersive
           ? 'w-full md:w-[720px] lg:w-[860px]'
           : 'w-full sm:w-[460px] md:w-[500px]'
@@ -256,15 +289,16 @@ export const LyricsDrawer: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              setSearchOpen((prev) => !prev);
-              if (!searchQuery && currentTrack) {
-                setSearchQuery(`${currentTrack.title} ${currentTrack.artist || ''}`.trim());
+              if (searchOpen) {
+                setSearchOpen(false);
+              } else {
+                openSwitcherPanel();
               }
             }}
             className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
               searchOpen ? 'bg-red-600/30 text-red-400' : 'text-neutral-400 hover:text-white'
             }`}
-            title="歌詞が違う場合に曲名で再検索"
+            title="別の歌詞・アーティストを検索して切り替え"
           >
             <Search className="w-4 h-4" />
           </button>
@@ -375,9 +409,66 @@ export const LyricsDrawer: React.FC = () => {
         </div>
       </div>
 
-      {/* Manual Search Dropdown panel */}
+      {/* Manual Search & Artist Switcher Panel */}
       {searchOpen && (
-        <div className="p-4 bg-[#14141a] border-b border-neutral-800 space-y-3 animate-in fade-in">
+        <div className="p-4 bg-[#121216] border-b border-neutral-800 space-y-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-neutral-200 flex items-center gap-1.5">
+              <ArrowLeftRight className="w-3.5 h-3.5 text-red-500" />
+              <span>別の歌詞候補に切り替え</span>
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {currentTrack && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const q = currentTrack.title.trim();
+                      setSearchQuery(q);
+                      runCandidateSearch(q);
+                    }}
+                    className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-[10px] text-neutral-300 cursor-pointer"
+                  >
+                    曲名のみで探す
+                  </button>
+                  {currentTrack.artist && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const q = `${currentTrack.title} ${currentTrack.artist}`.trim();
+                        setSearchQuery(q);
+                        runCandidateSearch(q);
+                      }}
+                      className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-[10px] text-neutral-300 cursor-pointer"
+                    >
+                      + アーティスト名
+                    </button>
+                  )}
+                  {hasManualLyricsOverride && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearLyricsOverride(currentTrack.id);
+                        setSearchOpen(false);
+                      }}
+                      className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-[10px] text-amber-300 cursor-pointer"
+                    >
+                      自動取得に戻す
+                    </button>
+                  )}
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                className="text-neutral-400 hover:text-white p-0.5 cursor-pointer"
+                title="閉じる"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
           <form onSubmit={handleManualSearch} className="flex gap-2">
             <input
               type="text"
@@ -389,37 +480,78 @@ export const LyricsDrawer: React.FC = () => {
             <button
               type="submit"
               disabled={searchLoading}
-              className="px-3.5 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer shrink-0"
             >
               {searchLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
               <span>検索</span>
             </button>
           </form>
 
-          {searchResults.length > 0 && (
-            <div className="max-h-48 overflow-y-auto divide-y divide-neutral-800/60 border border-neutral-800 rounded-lg bg-neutral-900/50">
-              {searchResults.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleApplySearchResult(item)}
-                  className="p-2.5 hover:bg-neutral-800/80 cursor-pointer flex items-center justify-between text-xs transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-white truncate">{item.trackName}</p>
-                    <p className="text-[11px] text-neutral-400 truncate">{item.artistName} • {item.albumName || 'Single'}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {item.isSynced ? (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-600/30 text-red-300 font-mono">同期可</span>
-                    ) : (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-neutral-800 text-neutral-400 font-mono">テキスト</span>
-                    )}
-                    <button className="px-2 py-1 bg-white text-black text-[11px] font-bold rounded">適用</button>
-                  </div>
-                </div>
-              ))}
+          {searchLoading ? (
+            <div className="py-5 flex items-center justify-center gap-2 text-xs text-neutral-400">
+              <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+              <span>歌詞候補を検索中...</span>
             </div>
-          )}
+          ) : searchResults.length > 0 ? (
+            <div className="max-h-60 overflow-y-auto divide-y divide-neutral-800/70 border border-neutral-800 rounded-lg bg-neutral-900/60">
+              {searchResults.map((item) => {
+                const candidateArtist = item.artistName || 'アーティスト不明';
+                const matchesPlayingArtist = Boolean(
+                  currentTrack?.artist && item.artistName && isSameArtist(item.artistName, currentTrack.artist)
+                );
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleApplySearchResult(item)}
+                    className="p-2.5 hover:bg-neutral-800/80 cursor-pointer flex items-center justify-between gap-2.5 text-xs transition-colors"
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-semibold text-white truncate max-w-[200px] sm:max-w-none">
+                          {item.trackName}
+                        </p>
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                            matchesPlayingArtist
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-neutral-800 text-neutral-200 border border-neutral-700'
+                          }`}
+                        >
+                          <UserCheck className="w-2.5 h-2.5" />
+                          <span>{candidateArtist}</span>
+                        </span>
+                      </div>
+                      {item.previewLine && (
+                        <p className="text-[11px] text-neutral-400 italic truncate">
+                          「{item.previewLine}」
+                        </p>
+                      )}
+                      <p className="text-[10px] text-neutral-500 truncate">
+                        {item.source}{item.albumName ? ` • ${item.albumName}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {item.isSynced ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-600/30 text-red-300 font-mono">同期可</span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-neutral-800 text-neutral-400 font-mono">テキスト</span>
+                      )}
+                      <button
+                        type="button"
+                        className="px-2.5 py-1 bg-white hover:bg-neutral-200 text-black text-[11px] font-bold rounded cursor-pointer"
+                      >
+                        適用
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : lastSearchedTrackIdRef.current === currentTrack?.id ? (
+            <p className="text-xs text-neutral-400 py-3 text-center">
+              一致する歌詞候補が見つかりませんでした。キーワードを変えて再検索してください。
+            </p>
+          ) : null}
         </div>
       )}
 
@@ -584,46 +716,77 @@ export const LyricsDrawer: React.FC = () => {
         </div>
       )}
 
-      {/* Song Info Bar */}
+      {/* Song Info Bar & Matched Lyrics Artist Bar */}
       {currentTrack && (
-        <div className="px-6 py-3 bg-neutral-900/40 border-b border-neutral-800/50 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <SafeImage
-              src={currentTrack.thumbnail}
-              alt={currentTrack.title}
-              useBase64
-              className="w-11 h-11 rounded-lg object-cover shadow bg-neutral-800 shrink-0"
-            />
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white truncate">{currentTrack.title}</p>
-              <p className="text-[11px] text-neutral-400 truncate">{currentTrack.artist}</p>
+        <div className="px-5 py-3 bg-neutral-900/40 border-b border-neutral-800/50 space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <SafeImage
+                src={currentTrack.thumbnail}
+                alt={currentTrack.title}
+                useBase64
+                className="w-11 h-11 rounded-lg object-cover shadow bg-neutral-800 shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-white truncate">{currentTrack.title}</p>
+                <p className="text-[11px] text-neutral-400 truncate">{currentTrack.artist}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => openSwitcherPanel()}
+                className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer border ${
+                  isArtistMismatch
+                    ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border-amber-500/40'
+                    : 'bg-neutral-800/90 hover:bg-neutral-700 text-neutral-200 border-neutral-700'
+                }`}
+                title="歌詞が違う場合に別の候補へ切り替え"
+              >
+                <ArrowLeftRight className="w-3 h-3 text-red-400" />
+                <span>歌詞変更</span>
+              </button>
+              <span className="text-xs font-mono font-medium text-neutral-400 tabular-nums hidden sm:inline">
+                {formatSeconds(progress)} / {formatSeconds(duration)}
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                setSearchOpen(true);
-                if (currentTrack) {
-                  setSearchQuery(`${currentTrack.title} ${currentTrack.artist || ''}`.trim());
-                }
-              }}
-              className="text-[10px] text-neutral-400 hover:text-white bg-neutral-800/80 hover:bg-neutral-700 px-2 py-1 rounded transition-colors hidden sm:inline-flex items-center gap-1 cursor-pointer"
-              title="歌詞が違う場合に別の候補を検索"
-            >
-              <Search className="w-2.5 h-2.5 text-neutral-400" />
-              <span>歌詞変更</span>
-            </button>
-            {data?.source && (
-              <span className="text-[10px] text-neutral-500 font-mono hidden md:inline">
-                {data.source}
-              </span>
-            )}
-            <span className="text-xs font-mono font-medium text-neutral-400 tabular-nums">
-              {formatSeconds(progress)} / {formatSeconds(duration)}
-            </span>
-          </div>
+          {/* Displayed Lyrics Attribution Row */}
+          {data?.available && (matchedArtist || matchedTitle || data.source) && (
+            <div className="flex items-center justify-between gap-2 flex-wrap text-[11px]">
+              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium max-w-full ${
+                    isArtistMismatch
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      : 'bg-white/5 text-neutral-300 border border-white/10'
+                  }`}
+                >
+                  {isArtistMismatch ? (
+                    <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+                  ) : (
+                    <UserCheck className="w-3 h-3 text-red-400 shrink-0" />
+                  )}
+                  <span className="truncate">
+                    歌詞アーティスト: {matchedArtist || '不明'}
+                    {matchedTitle && matchedTitle !== currentTrack.title ? `（${matchedTitle}）` : ''}
+                  </span>
+                </span>
+                {hasManualLyricsOverride && (
+                  <span className="px-1.5 py-0.5 rounded bg-red-600/20 text-red-300 border border-red-500/30 text-[10px]">
+                    手動選択
+                  </span>
+                )}
+              </div>
+              {data.source && (
+                <span className="text-[10px] text-neutral-500 font-mono truncate">
+                  {data.source}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -655,6 +818,25 @@ export const LyricsDrawer: React.FC = () => {
         ) : data?.syncedLyrics && data.syncedLyrics.length > 0 ? (
           /* Real-time Synchronized Lyrics View */
           <div className="space-y-4">
+            {/* Mismatch warning banner with 1-tap switch */}
+            {isArtistMismatch && !searchOpen && (
+              <div className="mb-3 p-3 rounded-xl bg-amber-950/30 border border-amber-500/35 flex items-center justify-between gap-3 text-xs text-amber-200">
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="truncate">
+                    別アーティスト「{matchedArtist}」の歌詞が表示中の可能性があります
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openSwitcherPanel()}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[11px] font-bold shrink-0 cursor-pointer"
+                >
+                  変更する
+                </button>
+              </div>
+            )}
+
             {/* Informational banner when approximate section-aware sync is active */}
             {data.isApproximate && (
               <div className="mb-4 p-3 rounded-xl bg-amber-950/20 border border-amber-500/25 flex items-center justify-between gap-3 text-xs text-amber-200/90 shadow-sm">
@@ -897,10 +1079,7 @@ export const LyricsDrawer: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setSearchOpen(true);
-                  if (currentTrack) setSearchQuery(currentTrack.title);
-                }}
+                onClick={() => openSwitcherPanel(currentTrack?.title)}
                 className="px-2.5 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 rounded-lg font-medium text-[11px] shrink-0 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <Search className="w-3 h-3" />
@@ -927,11 +1106,8 @@ export const LyricsDrawer: React.FC = () => {
               曲名表記が異なる場合は、上部の検索アイコンから曲名で直接検索して適用できます。
             </p>
             <button
-              onClick={() => {
-                setSearchOpen(true);
-                if (currentTrack) setSearchQuery(currentTrack.title);
-              }}
-              className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5"
+              onClick={() => openSwitcherPanel(currentTrack?.title)}
+              className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer"
             >
               <Search className="w-3.5 h-3.5 text-red-500" />
               <span>曲名で手動検索する</span>

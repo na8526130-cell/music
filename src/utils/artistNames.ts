@@ -184,3 +184,20 @@ export function normalizeArtistName(raw?: string | null): string {
 
   return single;
 }
+
+function simplifyArtistForCompare(name?: string | null): string {
+  if (!name) return '';
+  const normalized = normalizeArtistName(name);
+  return normalized
+    .split(/[,&×/]|feat\.?|ft\.?/i)[0]
+    .toLowerCase()
+    .replace(/[\s　・.．'’"“”\-–—()（）[\]【】!！?？]/g, '')
+    .trim();
+}
+
+export function isSameArtist(a?: string | null, b?: string | null): boolean {
+  const sa = simplifyArtistForCompare(a);
+  const sb = simplifyArtistForCompare(b);
+  if (!sa || !sb) return true; // Don't flag mismatch when one side is missing
+  return sa === sb || sa.includes(sb) || sb.includes(sa);
+}

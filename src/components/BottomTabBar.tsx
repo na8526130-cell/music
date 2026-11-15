@@ -15,7 +15,7 @@ export const BottomTabBar: React.FC = () => {
   return (
     <nav
       aria-label="モバイルナビゲーション"
-      className="sm:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-[#000000]/95 backdrop-blur-xl border-t border-neutral-900/80 z-40 flex items-center justify-around px-3"
+      className="sm:hidden fixed bottom-0 left-0 right-0 h-[60px] bg-gradient-to-t from-black via-black/95 to-black/85 backdrop-blur-xl border-t border-white/5 z-40 grid grid-cols-4 items-center px-2"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -26,18 +26,18 @@ export const BottomTabBar: React.FC = () => {
             key={tab.id}
             type="button"
             onClick={() => navigateTo(tab.id as any)}
-            className={`flex flex-col items-center justify-center gap-1 py-1 px-3 min-w-[64px] transition-colors cursor-pointer ${
-              isActive ? 'text-white' : 'text-neutral-500 hover:text-neutral-300'
+            className={`flex flex-col items-center justify-center gap-1 min-h-[44px] py-1 px-2 transition-colors cursor-pointer ${
+              isActive ? 'text-white' : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
             <Icon
               className={`w-5 h-5 transition-transform ${
-                isActive ? 'text-red-500 scale-105' : 'text-neutral-500'
+                isActive ? 'text-white scale-105 stroke-[2.4]' : 'text-neutral-400 stroke-[1.8]'
               }`}
             />
             <span
-              className={`text-[10px] font-medium tracking-tight ${
-                isActive ? 'text-white font-bold' : 'text-neutral-400'
+              className={`text-[10px] tracking-tight whitespace-nowrap ${
+                isActive ? 'text-white font-bold' : 'text-neutral-400 font-medium'
               }`}
             >
               {tab.label}

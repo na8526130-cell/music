@@ -1,5 +1,5 @@
 {
-  "totalAccessCount": 95,
+  "totalAccessCount": 98,
   "accounts": [
     {
       "id": "usr_1793521133121_m6do1",
@@ -293,8 +293,8 @@
   ],
   "bannedUsers": [],
   "analytics": {
-    "totalPlaybackSeconds": 4024,
-    "totalTracksPlayed": 16,
+    "totalPlaybackSeconds": 4224,
+    "totalTracksPlayed": 17,
     "trackPlays": {
       "dQw4w9WgXcQ": {
         "videoId": "dQw4w9WgXcQ",
@@ -407,6 +407,14 @@
         "thumbnail": "https://yt3.googleusercontent.com/_lT3SfLcRVPcdzYToxBn0zSW_eqUMwTky_bxTNAfUz4Ci1t4PguZAzIHGGqNWF05My7UWIjjZs2UNF7A=w120-h120-l90-rj",
         "playCount": 1,
         "lastPlayed": "2026-11-12T08:53:08.099Z"
+      },
+      "tuqwU8v9ux0": {
+        "videoId": "tuqwU8v9ux0",
+        "title": "Happy Birthday To You",
+        "artist": "Official髭男dism",
+        "thumbnail": "https://yt3.googleusercontent.com/H1ZIqxKiFEWcbSg5x_5pDXmyyJiEhBw4qEUmiUkIA9_wZ_wdAjni5Y6fDXbFOsNxeoIR6SxIipiFDhu2=w544-h544-l90-rj",
+        "playCount": 1,
+        "lastPlayed": "2026-11-14T12:14:38.615Z"
       }
     },
     "searchQueries": {
@@ -419,29 +427,35 @@
         "query": "アメイジングOfficial髭男dism",
         "count": 1,
         "lastSearched": "2026-11-02T11:16:11.642Z"
+      },
+      "髭男": {
+        "query": "髭男",
+        "count": 1,
+        "lastSearched": "2026-11-14T12:15:13.496Z"
       }
     },
     "hourlyVisits": {
       "8": 6,
       "9": 46,
-      "11": 19
+      "11": 20,
+      "12": 2
     },
     "clientDevices": {
       "desktop": 1,
-      "mobile": 70,
+      "mobile": 73,
       "tablet": 0
     },
     "clientBrowsers": {
-      "Safari": 70,
+      "Safari": 73,
       "Other": 1
     },
     "clientOS": {
-      "macOS": 70,
+      "macOS": 73,
       "Other": 1
     },
     "lyricsStats": {
-      "views": 14,
-      "syncedHits": 13,
+      "views": 15,
+      "syncedHits": 14,
       "plainHits": 0,
       "notFound": 1
     },

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Heart, RotateCcw, X } from 'lucide-react';
 import { PlayerProvider, usePlayer } from './context/PlayerContext';
 import { TopNavbar } from './components/TopNavbar';
 import { PlayerBar } from './components/PlayerBar';
@@ -38,6 +39,7 @@ import { ListeningWrappedModal } from './components/ListeningWrappedModal';
 const MainLayout: React.FC = () => {
   const {
     toastNotification,
+    setToastNotification,
     activeView,
     playerMode,
     setPlayerMode,
@@ -71,11 +73,11 @@ const MainLayout: React.FC = () => {
       {/* Real-time Floating Danmaku Screen Layer */}
       <DanmakuOverlay />
 
-      {/* Toast Notification Banner (Auto-fallback alerts & system messages) */}
+      {/* Toast Notification Banner (Auto-fallback alerts, heart action popups & system messages) */}
       {toastNotification && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-lg w-[92%] sm:w-auto animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-none">
+        <div className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-[80] max-w-lg w-[92%] sm:w-auto animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-none">
           <div
-            className={`px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl border flex items-center gap-2.5 text-xs sm:text-sm font-semibold pointer-events-auto ${
+            className={`px-3.5 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl border flex items-center justify-between gap-3 text-xs sm:text-sm font-semibold pointer-events-auto ${
               toastNotification.type === 'warning'
                 ? 'bg-amber-950/95 border-amber-600/60 text-amber-200 shadow-amber-950/60 ring-1 ring-amber-500/30'
                 : toastNotification.type === 'success'
@@ -83,7 +85,39 @@ const MainLayout: React.FC = () => {
                 : 'bg-neutral-900/95 border-neutral-700 text-white shadow-black/80 ring-1 ring-white/10'
             }`}
           >
-            <span>{toastNotification.message}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              {toastNotification.action?.label === 'お気に入り一覧を開く' && (
+                <Heart className="w-4 h-4 text-red-500 fill-red-500 shrink-0" />
+              )}
+              {toastNotification.action?.label === '元に戻す' && (
+                <RotateCcw className="w-4 h-4 text-neutral-300 shrink-0" />
+              )}
+              <span className="truncate sm:whitespace-normal">{toastNotification.message}</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              {toastNotification.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const actionHandler = toastNotification.action?.onClick;
+                    setToastNotification(null);
+                    actionHandler?.();
+                  }}
+                  className="px-3 py-1.5 rounded-full bg-white text-black hover:bg-neutral-200 active:scale-95 text-xs font-bold whitespace-nowrap transition-all cursor-pointer shadow-sm"
+                >
+                  {toastNotification.action.label}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setToastNotification(null)}
+                aria-label="閉じる"
+                className="p-1 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}

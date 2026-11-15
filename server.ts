@@ -20,6 +20,7 @@ import {
   fetchRealArtistLiveSetlists,
 } from './src/server/liveFeatures';
 import { normalizeArtistName } from './src/utils/artistNames';
+import { expandSearchQuery, getSearchConversions } from './src/utils/searchConverter';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -598,127 +599,78 @@ async function startServer() {
     }
   });
 
-  // Search autocomplete suggestions
+  // Search autocomplete suggestions + instant Romaji/Kana/Alias conversions
   app.get('/api/music/suggestions', async (req, res) => {
     const query = String(req.query.q || '').trim();
     if (!query) {
-      return res.json({ suggestions: [] });
+      return res.json({ suggestions: [], conversions: [] });
     }
     const startTime = Date.now();
+    const conversions = getSearchConversions(query);
+    const expanded = expandSearchQuery(query);
+    const suggestSeed = expanded.effectiveQuery || query;
+
     try {
       const yt = await getInnertube();
-      const suggestions = await yt.getSearchSuggestions(query);
+      const sections: any = await yt.music.getSearchSuggestions(suggestSeed);
+      const flat: string[] = [];
+      const seen = new Set<string>();
+
+      for (const sec of sections || []) {
+        for (const item of sec?.contents || []) {
+          const text = String(
+            item?.suggestion?.text ||
+              item?.title?.text ||
+              item?.title?.toString?.() ||
+              ''
+          ).trim();
+          if (!text || text.includes('\uFFFD')) continue;
+          const key = text.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          flat.push(text);
+          if (flat.length >= 10) break;
+        }
+        if (flat.length >= 10) break;
+      }
+
       recordLog({
-        endpoint: 'getSearchSuggestions',
-        params: { query },
+        endpoint: 'music.getSearchSuggestions',
+        params: { query, suggestSeed },
         durationMs: Date.now() - startTime,
         status: 'success',
-        itemCount: suggestions?.length || 0,
+        itemCount: flat.length + conversions.length,
       });
-      res.json({ suggestions: suggestions || [] });
-    } catch (err: any) {
-      res.json({ suggestions: [] });
+      res.json({ suggestions: flat, conversions });
+    } catch {
+      res.json({ suggestions: conversions.map((c) => c.query), conversions });
     }
   });
-
-  // Japanese & English artist alias / fuzzy dictionary to absorb slang & abbreviations
-  const ARTIST_ALIASES: Record<string, string> = {
-    'ヒゲダン': 'Official髭男dism',
-    'ひげだん': 'Official髭男dism',
-    'higedan': 'Official髭男dism',
-    '髭男': 'Official髭男dism',
-    'ミスチル': 'Mr.Children',
-    'みすちる': 'Mr.Children',
-    'mrchildren': 'Mr.Children',
-    'ドリカム': 'DREAMS COME TRUE',
-    'どりかむ': 'DREAMS COME TRUE',
-    'ワンオク': 'ONE OK ROCK',
-    'わんおく': 'ONE OK ROCK',
-    'oor': 'ONE OK ROCK',
-    'バンプ': 'BUMP OF CHICKEN',
-    'ばんぷ': 'BUMP OF CHICKEN',
-    'boc': 'BUMP OF CHICKEN',
-    'マンウィズ': 'MAN WITH A MISSION',
-    'mwam': 'MAN WITH A MISSION',
-    'セカオワ': 'SEKAI NO OWARI',
-    'せかおわ': 'SEKAI NO OWARI',
-    'ウーバー': 'UVERworld',
-    'uver': 'UVERworld',
-    'ポルノ': 'ポルノグラフィティ',
-    'ラッド': 'RADWIMPS',
-    'らっど': 'RADWIMPS',
-    'ずとまよ': 'ずっと真夜中でいいのに。',
-    'ずっと真夜中': 'ずっと真夜中でいいのに。',
-    'キタニ': 'キタニタツヤ',
-    'サカナ': 'サカナクション',
-    'ブルエン': 'BLUE ENCOUNT',
-    'マイヘア': 'My Hair is Bad',
-    'スカパラ': '東京スカパラダイスオーケストラ',
-    'アジカン': 'ASIAN KUNG-FU GENERATION',
-    'スノ': 'Snow Man',
-    'すの': 'Snow Man',
-    'なにわ': 'なにわ男子',
-    'よあそび': 'YOASOBI',
-    '夜遊び': 'YOASOBI',
-    'きんぐぬー': 'King Gnu',
-    'キングヌー': 'King Gnu',
-    'あいみょん': 'あいみょん',
-    'マカえん': 'マカロニえんぴつ',
-  };
-
-  function expandSearchQuery(input: string): { effectiveQuery: string; originalQuery: string; matchedAlias?: string } {
-    const trimmed = input.trim();
-    const lower = trimmed.toLowerCase();
-
-    // 1. Direct whole-string match
-    if (ARTIST_ALIASES[lower]) {
-      return { effectiveQuery: ARTIST_ALIASES[lower], originalQuery: trimmed, matchedAlias: ARTIST_ALIASES[lower] };
-    }
-
-    // 2. Tokenized replacement (e.g. "ヒゲダン subtitle" -> "Official髭男dism subtitle")
-    const tokens = trimmed.split(/\s+/);
-    let replaced = false;
-    let matchedAlias: string | undefined;
-
-    const newTokens = tokens.map((token) => {
-      const tokenLower = token.toLowerCase();
-      if (ARTIST_ALIASES[tokenLower]) {
-        replaced = true;
-        matchedAlias = ARTIST_ALIASES[tokenLower];
-        return ARTIST_ALIASES[tokenLower];
-      }
-      for (const [alias, official] of Object.entries(ARTIST_ALIASES)) {
-        if (tokenLower === alias) {
-          replaced = true;
-          matchedAlias = official;
-          return official;
-        }
-      }
-      return token;
-    });
-
-    if (replaced) {
-      return { effectiveQuery: newTokens.join(' '), originalQuery: trimmed, matchedAlias };
-    }
-
-    return { effectiveQuery: trimmed, originalQuery: trimmed };
-  }
 
   // Search with filters (songs, videos, albums, artists, playlists) & fuzzy normalization
   app.get('/api/music/search', async (req, res) => {
     const rawQuery = String(req.query.q || '').trim();
     const type = (req.query.type as string) || 'all';
+    const skipConversion = req.query.raw === '1' || req.query.raw === 'true';
     if (!rawQuery) {
       return res.json({ results: [], type });
     }
 
-    const { effectiveQuery, matchedAlias } = expandSearchQuery(rawQuery);
+    const { effectiveQuery, matchedAlias } = skipConversion
+      ? { effectiveQuery: rawQuery, matchedAlias: undefined }
+      : expandSearchQuery(rawQuery);
     const query = effectiveQuery;
 
-    const cacheKey = `search_ja_v2:${type}:${query.toLowerCase()}`;
+    const cacheKey = `search_ja_v3:${type}:${query.toLowerCase()}`;
     const cachedSearch = kvCache.get<any>(cacheKey);
     if (cachedSearch) {
-      return res.json({ ...cachedSearch, fromCache: true, originalQuery: rawQuery, effectiveQuery, matchedAlias });
+      return res.json({
+        ...cachedSearch,
+        fromCache: true,
+        originalQuery: rawQuery,
+        effectiveQuery,
+        matchedAlias,
+      });
     }
 
     const startTime = Date.now();
@@ -887,16 +839,25 @@ async function startServer() {
   // Spotify / Clean Official Catalog Search bridge to InnerTube
   app.get('/api/music/spotify/search', async (req, res) => {
     const rawQuery = String(req.query.q || '').trim();
+    const skipConversion = req.query.raw === '1' || req.query.raw === 'true';
     if (!rawQuery) {
       return res.json({ tracks: [], query: '' });
     }
 
-    const { effectiveQuery, matchedAlias } = expandSearchQuery(rawQuery);
+    const { effectiveQuery, matchedAlias } = skipConversion
+      ? { effectiveQuery: rawQuery, matchedAlias: undefined }
+      : expandSearchQuery(rawQuery);
     const query = effectiveQuery;
-    const cacheKey = `spotify_search_ja_v2:${query.toLowerCase()}`;
+    const cacheKey = `spotify_search_ja_v3:${query.toLowerCase()}`;
     const cached = kvCache.get<any>(cacheKey);
     if (cached) {
-      return res.json({ ...cached, fromCache: true });
+      return res.json({
+        ...cached,
+        fromCache: true,
+        originalQuery: rawQuery,
+        effectiveQuery,
+        matchedAlias,
+      });
     }
 
     const startTime = Date.now();
@@ -1355,12 +1316,32 @@ async function startServer() {
     return Array.from(list);
   }
 
+  function extractLyricPreviewLine(synced?: SyncedLine[], plain?: string): string {
+    const candidates = synced && synced.length > 0
+      ? synced.map((l) => l.text)
+      : (plain || '').split('\n');
+    for (const rawLine of candidates) {
+      const line = String(rawLine || '').trim();
+      if (!line) continue;
+      if (/^(作詞|作曲|編曲|Lyricist|Composer|Arranger)\s*[:：]/i.test(line)) continue;
+      if (line.length <= 2) continue;
+      return line;
+    }
+    return '';
+  }
+
   // Helper to fetch millisecond-accurate synchronized LRC lyrics from Kugou Music
   async function fetchKugouSyncedLyrics(
     title: string,
     artist: string,
     durationSec?: number
-  ): Promise<{ syncedLyrics: SyncedLine[]; plainLyrics: string; trackName: string } | null> {
+  ): Promise<{
+    syncedLyrics: SyncedLine[];
+    plainLyrics: string;
+    trackName: string;
+    matchedTitle: string;
+    matchedArtist: string;
+  } | null> {
     const candidateQueries = [
       `${title} ${artist}`.trim(),
       title.trim(),
@@ -1403,10 +1384,14 @@ async function startServer() {
           const parsed = parseLrc(rawLrc, best.song || title, best.singer || artist);
           if (parsed.length > 5) {
             const plain = parsed.map((l) => l.text).join('\n');
+            const mTitle = String(best.song || title).trim();
+            const mArtist = normalizeArtistName(String(best.singer || artist || '').trim()) || String(best.singer || artist || '').trim();
             return {
               syncedLyrics: parsed,
               plainLyrics: plain,
-              trackName: `${best.song} - ${best.singer}`,
+              trackName: mArtist ? `${mTitle} - ${mArtist}` : mTitle,
+              matchedTitle: mTitle,
+              matchedArtist: mArtist,
             };
           }
         }
@@ -1431,32 +1416,37 @@ async function startServer() {
       if (sRes.ok) {
         const sData = await sRes.json();
         const candidates = (sData.candidates || []).slice(0, 6);
-        for (const c of candidates) {
-          try {
-            const dUrl = `http://lyrics.kugou.com/download?ver=1&client=pc&id=${c.id}&accesskey=${c.accesskey}&fmt=lrc&charset=utf8`;
-            const dRes = await fetch(dUrl, { signal: AbortSignal.timeout(2500) });
-            if (dRes.ok) {
-              const dData = await dRes.json();
-              if (dData.content) {
-                const rawLrc = Buffer.from(dData.content, 'base64').toString('utf8');
-                const parsed = parseLrc(rawLrc, c.song, c.singer);
-                if (parsed.length > 3) {
-                  results.push({
-                    id: `kg_${c.id}`,
-                    trackName: c.song,
-                    artistName: c.singer,
-                    albumName: '公式同期LRC',
-                    duration: c.duration,
-                    isSynced: true,
-                    syncedLyrics: parsed,
-                    plainLyrics: parsed.map((l) => l.text).join('\n'),
-                    source: 'Kugou (高精度同期)',
-                  });
+        await Promise.all(
+          candidates.map(async (c: any) => {
+            try {
+              const dUrl = `http://lyrics.kugou.com/download?ver=1&client=pc&id=${c.id}&accesskey=${c.accesskey}&fmt=lrc&charset=utf8`;
+              const dRes = await fetch(dUrl, { signal: AbortSignal.timeout(2500) });
+              if (dRes.ok) {
+                const dData = await dRes.json();
+                if (dData.content) {
+                  const rawLrc = Buffer.from(dData.content, 'base64').toString('utf8');
+                  const parsed = parseLrc(rawLrc, c.song, c.singer);
+                  if (parsed.length > 3) {
+                    const plainLyrics = parsed.map((l) => l.text).join('\n');
+                    const artistName = normalizeArtistName(c.singer || '') || c.singer || '';
+                    results.push({
+                      id: `kg_${c.id}`,
+                      trackName: c.song,
+                      artistName,
+                      albumName: '公式同期LRC',
+                      duration: c.duration,
+                      isSynced: true,
+                      syncedLyrics: parsed,
+                      plainLyrics,
+                      previewLine: extractLyricPreviewLine(parsed, plainLyrics),
+                      source: 'Kugou (高精度同期)',
+                    });
+                  }
                 }
               }
-            }
-          } catch {}
-        }
+            } catch {}
+          })
+        );
       }
     } catch (e: any) {
       console.warn('[Search] Kugou error:', e.message);
@@ -1472,16 +1462,20 @@ async function startServer() {
       if (searchRes.ok) {
         const list: any[] = await searchRes.json();
         if (Array.isArray(list)) {
-          for (const item of list.slice(0, 4)) {
+          for (const item of list.slice(0, 6)) {
+            const parsed = item.syncedLyrics ? parseLrc(item.syncedLyrics) : [];
+            const plainLyrics = item.plainLyrics || '';
+            const artistName = normalizeArtistName(item.artistName || '') || item.artistName || '';
             results.push({
               id: `lrc_${item.id}`,
               trackName: item.trackName,
-              artistName: item.artistName,
+              artistName,
               albumName: item.albumName,
               duration: item.duration,
               isSynced: !!item.syncedLyrics,
-              syncedLyrics: item.syncedLyrics ? parseLrc(item.syncedLyrics) : [],
-              plainLyrics: item.plainLyrics || '',
+              syncedLyrics: parsed,
+              plainLyrics,
+              previewLine: extractLyricPreviewLine(parsed, plainLyrics),
               source: 'LRCLIB',
             });
           }
@@ -1493,7 +1487,9 @@ async function startServer() {
   });
 
   // Helper to extract YouTube captions/subtitles/transcripts (字幕・文字起こし)
-  async function fetchYouTubeCaptions(videoId: string): Promise<SyncedLine[] | null> {
+  async function fetchYouTubeCaptions(
+    videoId: string
+  ): Promise<{ lines: SyncedLine[]; videoTitle?: string; videoAuthor?: string } | null> {
     try {
       const yt = await getInnertube();
       const info = await yt.getInfo(videoId);
@@ -1534,7 +1530,11 @@ async function startServer() {
               }
             }
             if (lines.length > 0) {
-              return lines.sort((a, b) => a.time - b.time);
+              return {
+                lines: lines.sort((a, b) => a.time - b.time),
+                videoTitle: info.basic_info?.title || undefined,
+                videoAuthor: normalizeArtistName(info.basic_info?.author || '') || undefined,
+              };
             }
           }
         }
@@ -1610,7 +1610,7 @@ async function startServer() {
     const cleanTitle = cleanTrackTitle(rawTitle, cleanArtist);
 
     // Check persistent KV cache
-    const cacheKey = `lyrics:${videoId}_${cleanTitle}_${cleanArtist}`.toLowerCase();
+    const cacheKey = `lyrics_v2:${videoId}_${cleanTitle}_${cleanArtist}`.toLowerCase();
     const cached = kvCache.get<any>(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -1621,6 +1621,8 @@ async function startServer() {
     let footer = '';
     let source = '';
     let matchedTrackName = '';
+    let matchedTitle = '';
+    let matchedArtist = '';
     let isApproximate = false;
 
     // 1. Primary: Kugou Music for genuine, millisecond-accurate synchronized LRC
@@ -1632,6 +1634,8 @@ async function startServer() {
           plainLyrics = kg.plainLyrics;
           source = '高精度公式同期LRC';
           matchedTrackName = kg.trackName;
+          matchedTitle = kg.matchedTitle;
+          matchedArtist = kg.matchedArtist;
           isApproximate = false;
         }
       } catch (err: any) {
@@ -1651,17 +1655,22 @@ async function startServer() {
           const lrcRes = await fetch(lrcUrl, { headers: LRCLIB_HEADERS });
           if (lrcRes.ok) {
             const lrcData: any = await lrcRes.json();
+            const normalizedArt = normalizeArtistName(lrcData.artistName || '') || lrcData.artistName || '';
             if (lrcData.syncedLyrics) {
               syncedLyrics = parseLrc(lrcData.syncedLyrics);
               plainLyrics = lrcData.plainLyrics || syncedLyrics.map((l) => l.text).join('\n');
               source = 'LRCLIB (リアルタイム同期)';
-              matchedTrackName = `${lrcData.trackName} - ${lrcData.artistName}`;
+              matchedTitle = lrcData.trackName || cleanTitle;
+              matchedArtist = normalizedArt;
+              matchedTrackName = `${matchedTitle}${normalizedArt ? ` - ${normalizedArt}` : ''}`;
               isApproximate = false;
               break;
             } else if (lrcData.plainLyrics && !plainLyrics) {
               plainLyrics = lrcData.plainLyrics;
               source = 'LRCLIB (テキスト歌詞)';
-              matchedTrackName = `${lrcData.trackName} - ${lrcData.artistName}`;
+              matchedTitle = lrcData.trackName || cleanTitle;
+              matchedArtist = normalizedArt;
+              matchedTrackName = `${matchedTitle}${normalizedArt ? ` - ${normalizedArt}` : ''}`;
             }
           }
         } catch (err: any) {
@@ -1681,16 +1690,22 @@ async function startServer() {
               if (Array.isArray(list)) {
                 const bestCandidate = list.find((item) => item.syncedLyrics);
                 if (bestCandidate?.syncedLyrics) {
+                  const normalizedArt = normalizeArtistName(bestCandidate.artistName || '') || bestCandidate.artistName || '';
                   syncedLyrics = parseLrc(bestCandidate.syncedLyrics);
                   plainLyrics = bestCandidate.plainLyrics || syncedLyrics.map((l: any) => l.text).join('\n');
                   source = 'LRCLIB (リアルタイム同期)';
-                  matchedTrackName = `${bestCandidate.trackName} - ${bestCandidate.artistName}`;
+                  matchedTitle = bestCandidate.trackName || cleanTitle;
+                  matchedArtist = normalizedArt;
+                  matchedTrackName = `${matchedTitle}${normalizedArt ? ` - ${normalizedArt}` : ''}`;
                   isApproximate = false;
                   break;
                 } else if (!plainLyrics && list[0]?.plainLyrics) {
+                  const normalizedArt = normalizeArtistName(list[0].artistName || '') || list[0].artistName || '';
                   plainLyrics = list[0].plainLyrics;
                   source = 'LRCLIB (テキスト歌詞)';
-                  matchedTrackName = `${list[0].trackName} - ${list[0].artistName}`;
+                  matchedTitle = list[0].trackName || cleanTitle;
+                  matchedArtist = normalizedArt;
+                  matchedTrackName = `${matchedTitle}${normalizedArt ? ` - ${normalizedArt}` : ''}`;
                 }
               }
             }
@@ -1710,10 +1725,13 @@ async function startServer() {
             if (Array.isArray(list)) {
               const bestCandidate = list.find((item) => item.syncedLyrics);
               if (bestCandidate?.syncedLyrics) {
+                const normalizedArt = normalizeArtistName(bestCandidate.artistName || '') || bestCandidate.artistName || '';
                 syncedLyrics = parseLrc(bestCandidate.syncedLyrics);
                 plainLyrics = bestCandidate.plainLyrics || syncedLyrics.map((l: any) => l.text).join('\n');
                 source = 'LRCLIB (リアルタイム同期)';
-                matchedTrackName = `${bestCandidate.trackName} - ${bestCandidate.artistName}`;
+                matchedTitle = bestCandidate.trackName || cleanTitle;
+                matchedArtist = normalizedArt;
+                matchedTrackName = `${matchedTitle}${normalizedArt ? ` - ${normalizedArt}` : ''}`;
                 isApproximate = false;
               }
             }
@@ -1725,10 +1743,13 @@ async function startServer() {
     // 2. Try YouTube Video Captions / Subtitles / Transcripts (字幕・文字起こし)
     if (syncedLyrics.length === 0 && videoId) {
       const captions = await fetchYouTubeCaptions(videoId);
-      if (captions && captions.length > 0) {
-        syncedLyrics = captions;
-        plainLyrics = captions.map((c) => c.text).join('\n');
+      if (captions && captions.lines.length > 0) {
+        syncedLyrics = captions.lines;
+        plainLyrics = captions.lines.map((c) => c.text).join('\n');
         source = 'YouTube 字幕・文字起こし (字幕同期)';
+        matchedTitle = captions.videoTitle || cleanTitle;
+        matchedArtist = captions.videoAuthor || normalizeArtistName(rawArtist) || cleanArtist;
+        matchedTrackName = matchedArtist ? `${matchedTitle} - ${matchedArtist}` : matchedTitle;
         isApproximate = false;
       }
     }
@@ -1740,6 +1761,12 @@ async function startServer() {
         const lyrics = await yt.music.getLyrics(videoId);
         plainLyrics = lyrics?.description?.text || '';
         footer = lyrics?.footer?.text || '';
+
+        if (plainLyrics) {
+          matchedTitle = cleanTitle;
+          matchedArtist = normalizeArtistName(rawArtist) || cleanArtist;
+          matchedTrackName = matchedArtist ? `${matchedTitle} - ${matchedArtist}` : matchedTitle;
+        }
 
         // If direct videoId lyrics returned empty (e.g. user is playing a music video), search the audio song track
         if (!plainLyrics && cleanTitle) {
@@ -1753,6 +1780,9 @@ async function startServer() {
                 plainLyrics = matchedL.description.text;
                 footer = matchedL.footer?.text || '';
                 source = 'YouTube Music InnerTube (公式歌詞)';
+                matchedTitle = candidate.title || cleanTitle;
+                matchedArtist = normalizeArtistName(extractItemArtist(candidate) || rawArtist) || cleanArtist;
+                matchedTrackName = matchedArtist ? `${matchedTitle} - ${matchedArtist}` : matchedTitle;
               }
             }
           } catch (innerSearchErr: any) {
@@ -1778,6 +1808,8 @@ async function startServer() {
     }
 
     const hasSynced = syncedLyrics.length > 0;
+    const resolvedTitle = matchedTitle || cleanTitle;
+    const resolvedArtist = normalizeArtistName(matchedArtist || rawArtist) || matchedArtist || rawArtist;
     const durationMs = Date.now() - startTime;
     recordLog({
       endpoint: 'music.getLyrics',
@@ -1790,6 +1822,7 @@ async function startServer() {
         syncedCount: syncedLyrics.length,
         source,
         matchedTrackName,
+        matchedArtist: resolvedArtist,
       },
     });
 
@@ -1803,7 +1836,9 @@ async function startServer() {
       lyrics: plainLyrics || syncedLyrics.map((l) => l.text).join('\n'),
       footer,
       source: source || (hasSynced ? 'LRCLIB (リアルタイム同期)' : ''),
-      matchedTrackName: matchedTrackName || cleanTitle,
+      matchedTrackName: matchedTrackName || resolvedTitle,
+      matchedTitle: resolvedTitle,
+      matchedArtist: resolvedArtist,
       globalOffset,
     };
 
@@ -1865,7 +1900,7 @@ async function startServer() {
   app.get('/api/music/artist/:id', async (req, res) => {
     const artistId = req.params.id;
     const startTime = Date.now();
-    const cacheKey = `artist_profile_ja_v2_${artistId}`;
+    const cacheKey = `artist_profile_ja_v3_${artistId}`;
     const cached = kvCache.get<any>(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -1902,6 +1937,7 @@ async function startServer() {
       }
 
       const header = {
+        id: artistId,
         name: normalizeArtistName(headerRaw?.title?.toString?.() || 'Artist'),
         description: headerRaw?.description?.text || '',
         subscribers: headerRaw?.subscribers?.text || '',
@@ -1911,6 +1947,8 @@ async function startServer() {
       const topSongs: any[] = [];
       const albums: any[] = [];
       const singles: any[] = [];
+      const relatedArtists: any[] = [];
+      const featuredPlaylists: any[] = [];
 
       for (const section of (artist.sections || []) as any[]) {
         const title = (section.title?.toString?.() || section.header?.title?.toString?.() || '').toLowerCase();
@@ -1950,6 +1988,47 @@ async function startServer() {
               thumbnail: thumb,
             });
           }
+        } else if (
+          title.includes('fan') ||
+          title.includes('might also like') ||
+          title.includes('similar') ||
+          title.includes('ファン') ||
+          title.includes('おすすめ') ||
+          title.includes('関連')
+        ) {
+          for (const item of contents as any[]) {
+            const relId = item.id || item.browse_id;
+            const relName = normalizeArtistName(item.name?.toString?.() || item.title?.toString?.() || '');
+            const thumb = getBestThumbnail(item.thumbnail || item.thumbnails);
+            if (relId && relName) {
+              relatedArtists.push({
+                id: relId,
+                name: relName,
+                subscribers: item.subscribers?.text || item.subtitle?.toString?.() || '',
+                thumbnail: thumb,
+              });
+            }
+          }
+        } else if (
+          title.includes('featured') ||
+          title.includes('playlist') ||
+          title.includes('プレイリスト') ||
+          title.includes('収録') ||
+          title.includes('ここでも')
+        ) {
+          for (const item of contents as any[]) {
+            const plId = item.id || item.browse_id;
+            const plTitle = item.title?.toString?.() || '';
+            const thumb = getBestThumbnail(item.thumbnail || item.thumbnails);
+            if (plId && plTitle) {
+              featuredPlaylists.push({
+                id: plId,
+                title: plTitle,
+                author: item.author?.name || header.name,
+                thumbnail: thumb,
+              });
+            }
+          }
         }
       }
 
@@ -1966,6 +2045,8 @@ async function startServer() {
         topSongs: topSongs.slice(0, 20),
         albums,
         singles,
+        relatedArtists: relatedArtists.slice(0, 12),
+        featuredPlaylists: featuredPlaylists.slice(0, 10),
       };
       kvCache.set(cacheKey, artistResult, 24 * 3600);
       res.json(artistResult);
@@ -1976,11 +2057,12 @@ async function startServer() {
       if (artistId === 'UC84Rm0a3gimYXPtqp5O_JRw' || artistId.toLowerCase().includes('hige')) {
         const fallbackArtist = {
           header: {
+            id: 'UC84Rm0a3gimYXPtqp5O_JRw',
             name: 'Official髭男dism',
             description: '日本の4人組ピアノ・POPバンド。愛称は「ヒゲダン」。',
             subscribers: '340万人',
             thumbnail:
-              'https://yt3.googleusercontent.com/beJAMRk_a2t-oY2mX_o9vQj_J9gX3g2bM7bN6e-tZqM=s1000-c-k-c0x00ffffff-no-rj',
+              'https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj',
           },
           topSongs: [
             { id: 'bt8wNQJaKAk', title: 'I Love...', artist: 'Official髭男dism', artistId, album: 'Editorial', duration: '4:43', thumbnail: 'https://yt3.googleusercontent.com/zZy89DQBNNe9nMoOeR-xiJKiINPI1Y1YzePRO2Fwt4pj20Tm_FkBHnQODMAoxapzaT_tiSacaKR3TiVb=w544-h544-s-l90-rj' },
@@ -1990,13 +2072,16 @@ async function startServer() {
             { id: 'K9jL8pQ2n4X', title: 'Mixed Nuts', artist: 'Official髭男dism', artistId, album: 'ミックスナッツ EP', duration: '3:33', thumbnail: 'https://i.ytimg.com/vi/K9jL8pQ2n4X/hqdefault.jpg' },
           ],
           albums: [
+            { id: 'MPREb_KVsxzaWluhH', title: 'Rejoice', year: '2024', thumbnail: '/assets/covers/rejoice.jpg' },
             { id: 'MPREb_QCAGO0Lbeum', title: 'Editorial', year: '2021', thumbnail: '/assets/covers/editorial.jpg' },
             { id: 'MPREb_9XoC3Flm4Rv', title: 'Traveler', year: '2019', thumbnail: '/assets/covers/traveler.jpg' },
-            { id: 'MPREb_vJz07HnN0uA', title: 'Rejoice', year: '2024', thumbnail: '/assets/covers/rejoice.jpg' },
+            { id: 'MPREb_YzLb9pRbx9F', title: 'エスカパレード', year: '2018', thumbnail: 'https://yt3.googleusercontent.com/u-fn9CV7q-hRd8C1HDtZaXO1_ALKhP6PnpduWucUEtt36BLBd7tGf6LWut7sEXSyOt5sjWXiOn2DZi2J=w544-h544-l90-rj' },
           ],
           singles: [
             { id: 'MPREb_lvUlrlxInIt', title: 'ラブとピースは君の中', year: '2015', thumbnail: '/assets/covers/love_peace.jpg' },
           ],
+          relatedArtists: [],
+          featuredPlaylists: [],
         };
         kvCache.set(cacheKey, fallbackArtist, 24 * 3600);
         return res.json(fallbackArtist);
@@ -2051,7 +2136,7 @@ async function startServer() {
       }
 
       // If it looks like a playlist
-      if (actualAlbumId.startsWith('VL') || actualAlbumId.startsWith('PL')) {
+      if (actualAlbumId.startsWith('VL') || actualAlbumId.startsWith('PL') || actualAlbumId.startsWith('RD')) {
         const playlist = await yt.music.getPlaylist(actualAlbumId);
         const pHeader = playlist.header as any;
         const pThumbnails = pHeader?.thumbnails || pHeader?.thumbnail?.contents || [];
@@ -2126,7 +2211,7 @@ async function startServer() {
         if (actualAlbumId === 'MPREb_QCAGO0Lbeum') headerThumbnail = '/assets/covers/editorial.jpg';
         else if (actualAlbumId === 'MPREb_lvUlrlxInIt') headerThumbnail = '/assets/covers/love_peace.jpg';
         else if (actualAlbumId === 'MPREb_9XoC3Flm4Rv') headerThumbnail = '/assets/covers/traveler.jpg';
-        else if (actualAlbumId === 'MPREb_vJz07HnN0uA') headerThumbnail = '/assets/covers/rejoice.jpg';
+        else if (actualAlbumId === 'MPREb_KVsxzaWluhH') headerThumbnail = '/assets/covers/rejoice.jpg';
       }
 
       const headerArtist = normalizeArtistName(

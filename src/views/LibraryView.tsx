@@ -16,7 +16,8 @@ import {
   Music,
   FileAudio,
   Sparkles,
-  WifiOff,
+  Disc,
+  ListMusic,
 } from 'lucide-react';
 import { parseLocalAudioFile } from '../services/localTracks';
 import {
@@ -30,23 +31,37 @@ import { SafeImage } from '../components/SafeImage';
 export const LibraryView: React.FC = () => {
   const {
     likedTracks,
+    likedAlbums,
+    likedPlaylists,
     recentTracks,
     userPlaylists,
     playTrack,
     addToQueue,
     toggleLikeTrack,
+    toggleLikeAlbum,
+    toggleLikePlaylist,
+    toggleLikeUserPlaylist,
     createUserPlaylist,
     deleteUserPlaylist,
     currentTrack,
     setImportModalOpen,
     openAddToPlaylistModal,
     openShareModal,
+    navigateTo,
+    libraryTab: activeTab,
+    setLibraryTab: setActiveTab,
+    libraryResetSeq,
   } = usePlayer();
 
-  const [activeTab, setActiveTab] = useState<'liked' | 'history' | 'playlists' | 'local'>('liked');
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (libraryResetSeq > 0) {
+      setSelectedPlaylistId(null);
+    }
+  }, [libraryResetSeq]);
 
   // Local tracks state & IndexedDB persistence
   const [localTracks, setLocalTracks] = useState<Track[]>([]);
@@ -154,7 +169,9 @@ export const LibraryView: React.FC = () => {
               }`}
             >
               <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-              <span>お気に入り ({likedTracks.length})</span>
+              <span>
+                お気に入り ({likedTracks.length + likedAlbums.length + likedPlaylists.length + userPlaylists.filter((p) => p.isLiked).length})
+              </span>
             </button>
 
             <button
@@ -255,15 +272,146 @@ export const LibraryView: React.FC = () => {
             )}
           </div>
 
-          {likedTracks.length === 0 ? (
+          {/* Liked Albums Section */}
+          {likedAlbums.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Disc className="w-4 h-4 text-red-500" />
+                <span>お気に入りのアルバム ({likedAlbums.length})</span>
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
+                {likedAlbums.map((album) => (
+                  <div
+                    key={album.id}
+                    onClick={() => navigateTo('album', album.id)}
+                    className="group p-3 bg-neutral-900/50 hover:bg-neutral-800/70 border border-neutral-800/80 hover:border-red-600/40 rounded-2xl cursor-pointer flex flex-col gap-2 transition-all"
+                  >
+                    <div className="aspect-square rounded-xl overflow-hidden bg-neutral-800 relative">
+                      <SafeImage
+                        src={album.thumbnail}
+                        alt={album.title}
+                        useBase64
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleLikeAlbum(album);
+                        }}
+                        className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/75 text-red-500 flex items-center justify-center cursor-pointer"
+                        title="お気に入り解除"
+                      >
+                        <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                      </button>
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-white truncate">{album.title}</h4>
+                      <p className="text-[11px] text-neutral-400 truncate">{album.artist}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Liked Playlists Section */}
+          {(likedPlaylists.length > 0 || userPlaylists.some((p) => p.isLiked)) && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <ListMusic className="w-4 h-4 text-red-500" />
+                <span>
+                  お気に入りのプレイリスト ({likedPlaylists.length + userPlaylists.filter((p) => p.isLiked).length})
+                </span>
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
+                {userPlaylists
+                  .filter((p) => p.isLiked)
+                  .map((pl) => (
+                    <div
+                      key={pl.id}
+                      onClick={() => {
+                        setActiveTab('playlists');
+                        setSelectedPlaylistId(pl.id);
+                      }}
+                      className="group p-3 bg-neutral-900/50 hover:bg-neutral-800/70 border border-neutral-800/80 hover:border-red-600/40 rounded-2xl cursor-pointer flex flex-col gap-2 transition-all"
+                    >
+                      <div className="aspect-square rounded-xl overflow-hidden bg-neutral-800 relative flex items-center justify-center">
+                        {pl.tracks[0]?.thumbnail ? (
+                          <SafeImage
+                            src={pl.tracks[0].thumbnail}
+                            alt={pl.name}
+                            useBase64
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                        ) : (
+                          <ListPlus className="w-8 h-8 text-red-500" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleLikeUserPlaylist(pl.id);
+                          }}
+                          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/75 text-red-500 flex items-center justify-center cursor-pointer"
+                          title="お気に入り解除"
+                        >
+                          <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                        </button>
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-white truncate">{pl.name}</h4>
+                        <p className="text-[11px] text-neutral-400 truncate">マイプレイリスト • {pl.tracks.length}曲</p>
+                      </div>
+                    </div>
+                  ))}
+                {likedPlaylists.map((pl) => (
+                  <div
+                    key={pl.id}
+                    onClick={() => navigateTo('album', pl.id)}
+                    className="group p-3 bg-neutral-900/50 hover:bg-neutral-800/70 border border-neutral-800/80 hover:border-red-600/40 rounded-2xl cursor-pointer flex flex-col gap-2 transition-all"
+                  >
+                    <div className="aspect-square rounded-xl overflow-hidden bg-neutral-800 relative">
+                      <SafeImage
+                        src={pl.thumbnail}
+                        alt={pl.title}
+                        useBase64
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleLikePlaylist(pl);
+                        }}
+                        className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/75 text-red-500 flex items-center justify-center cursor-pointer"
+                        title="お気に入り解除"
+                      >
+                        <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                      </button>
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-white truncate">{pl.title}</h4>
+                      <p className="text-[11px] text-neutral-400 truncate">{pl.author || 'プレイリスト'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {likedTracks.length === 0 &&
+          likedAlbums.length === 0 &&
+          likedPlaylists.length === 0 &&
+          !userPlaylists.some((p) => p.isLiked) ? (
             <div className="py-20 text-center space-y-2 text-neutral-400">
               <Heart className="w-10 h-10 mx-auto text-neutral-600" />
-              <p className="text-sm font-medium text-neutral-300">お気に入りの曲がまだありません</p>
+              <p className="text-sm font-medium text-neutral-300">お気に入りがまだありません</p>
               <p className="text-xs text-neutral-500">
-                楽曲のハートアイコンをクリックすると、ここに追加されます。
+                楽曲・アルバム・プレイリストのハートアイコンをクリックすると、ここに追加されます。
               </p>
             </div>
-          ) : (
+          ) : likedTracks.length > 0 ? (
             <div className="bg-neutral-900/40 border border-neutral-800/80 rounded-2xl overflow-hidden divide-y divide-neutral-800/60 shadow-xl">
               {likedTracks.map((track, idx) => {
                 const isCurrent = currentTrack?.id === track.id;
@@ -338,7 +486,7 @@ export const LibraryView: React.FC = () => {
                 );
               })}
             </div>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -464,13 +612,15 @@ export const LibraryView: React.FC = () => {
 
           {/* Playlists grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {userPlaylists.map((pl) => (
+            {[...userPlaylists]
+              .sort((a, b) => Number(Boolean(b.isLiked)) - Number(Boolean(a.isLiked)))
+              .map((pl) => (
               <div
                 key={pl.id}
                 onClick={() => setSelectedPlaylistId(pl.id)}
                 className="p-4 bg-neutral-900/40 hover:bg-neutral-800/60 border border-neutral-800 rounded-xl cursor-pointer flex items-center justify-between group transition-all"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <div className="w-12 h-12 rounded-lg bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                     <ListPlus className="w-6 h-6" />
                   </div>
@@ -482,14 +632,29 @@ export const LibraryView: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleLikeUserPlaylist(pl.id);
+                    }}
+                    className={`p-1.5 transition-colors cursor-pointer ${
+                      pl.isLiked
+                        ? 'text-red-500'
+                        : 'text-neutral-400 hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100'
+                    }`}
+                    title={pl.isLiked ? 'お気に入り解除' : 'お気に入りに追加'}
+                  >
+                    <Heart className={`w-4 h-4 ${pl.isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+                  </button>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       openShareModal('playlist', { name: pl.name, tracks: pl.tracks });
                     }}
-                    className="p-1.5 text-neutral-400 hover:text-blue-400"
+                    className="p-1.5 text-neutral-400 hover:text-blue-400 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                     title="共有リンクを発行"
                   >
                     <Share2 className="w-4 h-4" />
@@ -500,7 +665,7 @@ export const LibraryView: React.FC = () => {
                       e.stopPropagation();
                       deleteUserPlaylist(pl.id);
                     }}
-                    className="p-1.5 text-neutral-500 hover:text-red-400"
+                    className="p-1.5 text-neutral-500 hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                     title="削除"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -509,6 +674,49 @@ export const LibraryView: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* External / Liked Playlists */}
+          {likedPlaylists.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+                <span>いいねしたプレイリスト ({likedPlaylists.length})</span>
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
+                {likedPlaylists.map((pl) => (
+                  <div
+                    key={pl.id}
+                    onClick={() => navigateTo('album', pl.id)}
+                    className="group p-3 bg-neutral-900/40 hover:bg-neutral-800/70 border border-neutral-800 rounded-2xl cursor-pointer flex flex-col gap-2 transition-all"
+                  >
+                    <div className="aspect-square rounded-xl overflow-hidden bg-neutral-800 relative">
+                      <SafeImage
+                        src={pl.thumbnail}
+                        alt={pl.title}
+                        useBase64
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleLikePlaylist(pl);
+                        }}
+                        className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/75 text-red-500 flex items-center justify-center cursor-pointer"
+                        title="お気に入り解除"
+                      >
+                        <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                      </button>
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-white truncate">{pl.title}</h4>
+                      <p className="text-[11px] text-neutral-400 truncate">{pl.author || 'プレイリスト'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Selected playlist tracks detail view */}
           {currentSelectedPlaylist && (
@@ -519,6 +727,18 @@ export const LibraryView: React.FC = () => {
                   <p className="text-xs text-neutral-400">{currentSelectedPlaylist.tracks.length}曲</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleLikeUserPlaylist(currentSelectedPlaylist.id)}
+                    className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+                      currentSelectedPlaylist.isLiked
+                        ? 'bg-red-600/20 border-red-500/40 text-red-500'
+                        : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-red-400'
+                    }`}
+                    title={currentSelectedPlaylist.isLiked ? 'お気に入り解除' : 'お気に入りに追加'}
+                  >
+                    <Heart className={`w-4 h-4 ${currentSelectedPlaylist.isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+                  </button>
                   <button
                     type="button"
                     onClick={() =>

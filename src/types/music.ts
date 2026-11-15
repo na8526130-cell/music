@@ -85,6 +85,9 @@ export interface LyricsData {
   lyrics: string;
   footer?: string;
   source?: string;
+  matchedTrackName?: string;
+  matchedTitle?: string;
+  matchedArtist?: string;
   error?: string;
   globalOffset?: number;
 }

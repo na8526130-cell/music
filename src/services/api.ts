@@ -35,15 +35,48 @@ export const api = {
     }
   },
 
-  async search(query: string, type: 'all' | 'song' | 'video' | 'album' | 'artist' | 'playlist' = 'all') {
-    const res = await fetch(`/api/music/search?q=${encodeURIComponent(query)}&type=${type}`);
+  async getSuggestionsWithConversions(query: string): Promise<{
+    suggestions: string[];
+    conversions: { query: string; label: string; kind: 'alias' | 'kana' | 'romaji' }[];
+  }> {
+    if (!query) return { suggestions: [], conversions: [] };
+    try {
+      const res = await fetch(`/api/music/suggestions?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return { suggestions: [], conversions: [] };
+      const data = await res.json();
+      return {
+        suggestions: data.suggestions || [],
+        conversions: data.conversions || [],
+      };
+    } catch {
+      return { suggestions: [], conversions: [] };
+    }
+  },
+
+  async search(
+    query: string,
+    type: 'all' | 'song' | 'video' | 'album' | 'artist' | 'playlist' = 'all',
+    raw = false
+  ) {
+    const rawQs = raw ? '&raw=1' : '';
+    const res = await fetch(`/api/music/search?q=${encodeURIComponent(query)}&type=${type}${rawQs}`);
     if (!res.ok) throw new Error('Failed to execute search');
     return res.json();
   },
 
-  async searchSpotify(query: string): Promise<{ tracks: Track[]; query: string; originalQuery?: string; matchedAlias?: string }> {
+  async searchSpotify(
+    query: string,
+    raw = false
+  ): Promise<{
+    tracks: Track[];
+    query: string;
+    originalQuery?: string;
+    effectiveQuery?: string;
+    matchedAlias?: string;
+  }> {
     try {
-      const res = await fetch(`/api/music/spotify/search?q=${encodeURIComponent(query)}`);
+      const rawQs = raw ? '&raw=1' : '';
+      const res = await fetch(`/api/music/spotify/search?q=${encodeURIComponent(query)}${rawQs}`);
       if (!res.ok) return { tracks: [], query };
       return res.json();
     } catch {
@@ -190,6 +223,8 @@ export const api = {
     topSongs: Track[];
     albums: Album[];
     singles: Album[];
+    relatedArtists?: Artist[];
+    featuredPlaylists?: Playlist[];
   }> {
     const res = await fetch(`/api/music/artist/${artistId}`);
     if (!res.ok) throw new Error('Failed to fetch artist');

@@ -11,9 +11,9 @@ import {
   Plus,
   Loader2,
   Disc,
-  Clock,
-  Sparkles,
+  Share2,
   Tv,
+  ListPlus,
 } from 'lucide-react';
 
 export const AlbumDetailView: React.FC = () => {
@@ -21,13 +21,20 @@ export const AlbumDetailView: React.FC = () => {
     selectedEntityId,
     navigateTo,
     playTrack,
+    togglePlay,
     addToQueue,
     toggleLikeTrack,
     likedTrackIds,
+    likedAlbumIds,
+    toggleLikeAlbum,
+    likedPlaylistIds,
+    toggleLikePlaylist,
     currentTrack,
     isPlaying,
     setPlayerMode,
     setVideoLayout,
+    openShareModal,
+    showToast,
   } = usePlayer();
 
   const [header, setHeader] = useState<Album | null>(null);
@@ -78,7 +85,7 @@ export const AlbumDetailView: React.FC = () => {
         <button
           type="button"
           onClick={() => navigateTo('home')}
-          className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-red-600/30 cursor-pointer"
+          className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-full transition-all shadow-md shadow-red-600/30 cursor-pointer"
         >
           ホームに戻る
         </button>
@@ -86,123 +93,191 @@ export const AlbumDetailView: React.FC = () => {
     );
   }
 
-  const isAlbumPlaying =
-    isPlaying && tracks.some((t) => t.id === currentTrack?.id);
+  const isAlbumPlaying = isPlaying && tracks.some((t) => t.id === currentTrack?.id);
+  const isPlaylistEntity = Boolean(
+    header.id?.startsWith('VL') || header.id?.startsWith('PL') || header.id?.startsWith('RD')
+  );
+  const isHeaderLiked = isPlaylistEntity
+    ? likedPlaylistIds.has(header.id)
+    : likedAlbumIds.has(header.id);
+
+  const handleToggleHeaderHeart = () => {
+    if (isPlaylistEntity) {
+      toggleLikePlaylist({
+        id: header.id,
+        title: header.title,
+        author: header.artist,
+        itemCount: `${tracks.length}曲`,
+        thumbnail: header.thumbnail,
+      });
+    } else {
+      toggleLikeAlbum({ ...header, trackCount: tracks.length });
+    }
+  };
+
+  const handlePlayHeader = () => {
+    if (tracks.length === 0) return;
+    if (tracks.some((t) => t.id === currentTrack?.id)) {
+      togglePlay();
+    } else {
+      playTrack(tracks[0], tracks);
+    }
+  };
 
   return (
-    <div className="space-y-8 pb-24">
-      {/* Back button */}
-      <button
-        type="button"
-        onClick={() => navigateTo('home')}
-        className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-400 hover:text-white transition-colors cursor-pointer group"
-      >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-        <span>ホームに戻る</span>
-      </button>
+    <div className="pb-24">
+      {/* Full-bleed Spotify-style vertical gradient header */}
+      <div className="-mx-4 sm:-mx-6 md:-mx-8 -mt-6 px-4 sm:px-6 md:px-8 pt-4 pb-6 bg-gradient-to-b from-[#4f1118] via-[#22090c] to-[#070708]">
+        {/* Top Back Button */}
+        <button
+          type="button"
+          onClick={() => navigateTo('home')}
+          className="min-w-[44px] min-h-[44px] -ml-2 inline-flex items-center justify-center text-white/85 hover:text-white transition-colors cursor-pointer"
+          aria-label="戻る"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </button>
 
-      {/* Album Header Banner (Spotify Red & Black Style) */}
-      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-b from-red-950/70 via-[#14080a] to-[#070708] border border-red-900/40 p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-end gap-6 sm:gap-8 shadow-2xl">
-        {/* Subtle crimson radial glow behind cover */}
-        <div className="absolute top-0 left-0 w-80 h-80 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative w-44 h-44 sm:w-56 sm:h-56 rounded-xl overflow-hidden shadow-2xl shadow-black/80 bg-neutral-900 shrink-0 border border-red-950/60">
-          <SafeImage
-            src={header.thumbnail}
-            alt={header.title}
-            useBase64
-            className="w-full h-full object-cover"
-          />
-        </div>
-
-        <div className="relative z-10 flex-1 text-center sm:text-left space-y-3">
-          <div className="inline-flex items-center gap-2 text-xs font-bold text-red-400 uppercase tracking-widest">
-            <Disc className="w-4 h-4 text-red-500" />
-            <span>
-              {header.id?.startsWith('VL') || header.id?.startsWith('PL')
-                ? 'プレイリスト'
-                : 'アルバム'}
-            </span>
+        {/* Centered cover on mobile, side-by-side on desktop */}
+        <div className="mt-2 flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-7">
+          <div className="w-52 h-52 sm:w-56 sm:h-56 mx-auto sm:mx-0 rounded-md overflow-hidden shadow-[0_18px_50px_rgba(0,0,0,0.75)] bg-neutral-900 shrink-0">
+            <SafeImage
+              src={header.thumbnail}
+              alt={header.title}
+              useBase64
+              className="w-full h-full object-cover"
+            />
           </div>
 
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-            {header.title}
-          </h1>
+          <div className="flex-1 min-w-0 space-y-2.5 text-left">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
+              {header.title}
+            </h1>
 
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-neutral-300">
-            {header.artistId ? (
+            <div className="flex items-center gap-2 text-sm text-white font-bold">
+              <div className="w-5 h-5 rounded-full overflow-hidden bg-neutral-800 shrink-0">
+                <SafeImage
+                  src={header.thumbnail}
+                  alt={header.artist}
+                  useBase64
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {header.artistId ? (
+                <button
+                  type="button"
+                  onClick={() => navigateTo('artist', header.artistId)}
+                  className="hover:underline cursor-pointer truncate"
+                >
+                  {header.artist}
+                </button>
+              ) : (
+                <span className="truncate">{header.artist}</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs text-neutral-300 font-medium">
+              <span>{isPlaylistEntity ? 'プレイリスト' : 'アルバム'}</span>
+              {header.year && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{header.year}</span>
+                </>
+              )}
+              <span aria-hidden="true">·</span>
+              <span className="tabular-nums">{tracks.length}曲</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Spotify Action Bar: Heart, Share, Add Queue on Left; Big Play Circle on Right */}
+        <div className="mt-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleToggleHeaderHeart}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-neutral-300 hover:text-white transition-transform active:scale-110 cursor-pointer"
+              title={isHeaderLiked ? 'お気に入り解除' : 'お気に入りに追加'}
+              aria-label={isHeaderLiked ? 'お気に入り解除' : 'お気に入りに追加'}
+            >
+              <Heart
+                className={`w-6 h-6 ${isHeaderLiked ? 'fill-red-500 text-red-500' : 'text-neutral-300'}`}
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                openShareModal('playlist', {
+                  name: header.title,
+                  tracks,
+                })
+              }
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-neutral-300 hover:text-white transition-colors cursor-pointer"
+              title="シェア"
+              aria-label="シェア"
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
+
+            {tracks.length > 0 && (
               <button
                 type="button"
-                onClick={() => navigateTo('artist', header.artistId)}
-                className="font-bold text-white hover:text-red-400 hover:underline cursor-pointer"
+                onClick={() => {
+                  tracks.forEach((t) => addToQueue(t));
+                  showToast(`${tracks.length}曲をキューに追加しました`, 'success', 2200);
+                }}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-neutral-300 hover:text-white transition-colors cursor-pointer"
+                title="すべてキューに追加"
+                aria-label="すべてキューに追加"
               >
-                {header.artist}
+                <ListPlus className="w-5 h-5" />
               </button>
-            ) : (
-              <span className="font-bold text-white">{header.artist}</span>
             )}
-            {header.year && (
-              <>
-                <span aria-hidden="true" className="text-neutral-600">•</span>
-                <span className="text-neutral-400">{header.year}年</span>
-              </>
-            )}
-            <span aria-hidden="true" className="text-neutral-600">•</span>
-            <span className="text-neutral-400">{tracks.length}曲</span>
           </div>
 
           {tracks.length > 0 && (
-            <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-3">
-              <button
-                type="button"
-                onClick={() => playTrack(tracks[0], tracks)}
-                className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white text-sm font-extrabold rounded-full inline-flex items-center gap-2.5 shadow-xl shadow-red-600/30 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-              >
-                <Play className="w-4 h-4 fill-current ml-0.5" />
-                <span>アルバムを再生</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => tracks.forEach((t) => addToQueue(t))}
-                className="px-4 py-3 bg-neutral-900/80 hover:bg-neutral-800 text-neutral-200 text-xs font-bold rounded-full border border-neutral-700/80 flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>すべてキューに追加</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handlePlayHeader}
+              className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-xl shadow-red-600/30 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              title={isAlbumPlaying ? '一時停止' : '再生'}
+              aria-label={isAlbumPlaying ? '一時停止' : '再生'}
+            >
+              {isAlbumPlaying ? (
+                <Pause className="w-6 h-6 fill-white" />
+              ) : (
+                <Play className="w-6 h-6 fill-white ml-0.5" />
+              )}
+            </button>
           )}
         </div>
       </div>
 
-      {/* Album Tracklist Table (Spotify Style) */}
-      <div className="space-y-2">
-        <div className="px-4 py-2.5 flex items-center text-xs font-bold text-neutral-400 uppercase tracking-wider border-b border-neutral-800/80">
-          <span className="w-8 text-center">#</span>
-          <span className="flex-1">タイトル</span>
-          <span className="w-24 text-right flex items-center justify-end gap-1">
-            <Clock className="w-3.5 h-3.5" />
-            <span>時間</span>
-          </span>
-        </div>
+      {/* Clean Spotify Track List */}
+      <div className="mt-2 space-y-0.5">
+        {tracks.map((track) => {
+          const isCurrent = currentTrack?.id === track.id;
+          const isLiked = likedTrackIds.has(track.id);
 
-        <div className="divide-y divide-neutral-900/80">
-          {tracks.map((track) => {
-            const isCurrent = currentTrack?.id === track.id;
-            const isLiked = likedTrackIds.has(track.id);
-
-            return (
-              <div
-                key={track.id}
-                onClick={() => playTrack(track, tracks)}
-                className={`flex items-center gap-3.5 px-4 py-3 rounded-xl group transition-colors cursor-pointer ${
-                  isCurrent
-                    ? 'bg-red-950/30 border border-red-900/30'
-                    : 'hover:bg-neutral-900/80 border border-transparent'
-                }`}
-              >
-                {/* Track Number / Play Indicator */}
-                <div className="w-8 text-center shrink-0 flex items-center justify-center">
+          return (
+            <div
+              key={track.id}
+              onClick={() => playTrack(track, tracks)}
+              className={`flex items-center gap-3 px-2 sm:px-3 py-2.5 rounded-lg group transition-colors cursor-pointer ${
+                isCurrent ? 'bg-white/5' : 'hover:bg-white/5'
+              }`}
+            >
+              {/* Playlist shows thumbnail; Album shows clean index on sm+ */}
+              {isPlaylistEntity ? (
+                <SafeImage
+                  src={track.thumbnail}
+                  alt={track.title}
+                  useBase64
+                  className="w-11 h-11 rounded object-cover bg-neutral-800 shrink-0"
+                />
+              ) : (
+                <div className="hidden sm:flex w-7 text-center shrink-0 items-center justify-center">
                   {isCurrent && isPlaying ? (
                     <span className="flex items-end justify-center gap-0.5 h-3 w-3">
                       <span className="w-0.5 bg-red-500 animate-pulse h-full" />
@@ -210,93 +285,94 @@ export const AlbumDetailView: React.FC = () => {
                       <span className="w-0.5 bg-red-500 animate-pulse h-3" />
                     </span>
                   ) : (
-                    <span
-                      className={`text-xs font-mono font-medium ${
-                        isCurrent ? 'text-red-400 font-bold' : 'text-neutral-500 group-hover:hidden'
-                      }`}
-                    >
-                      {track.index}
-                    </span>
+                    <>
+                      <span
+                        className={`text-xs font-mono tabular-nums ${
+                          isCurrent ? 'text-red-500 font-bold' : 'text-neutral-400 group-hover:hidden'
+                        }`}
+                      >
+                        {track.index}
+                      </span>
+                      <Play
+                        className={`w-3.5 h-3.5 fill-current text-white hidden ${
+                          !isCurrent ? 'group-hover:block' : ''
+                        }`}
+                      />
+                    </>
                   )}
-                  <Play
-                    className={`w-3.5 h-3.5 fill-current text-white hidden ${
-                      !isCurrent ? 'group-hover:block' : ''
-                    }`}
-                  />
                 </div>
+              )}
 
-                {/* Track Details */}
-                <div className="flex-1 min-w-0">
-                  <p
-                    className={`text-sm truncate font-medium ${
-                      isCurrent ? 'text-red-400 font-bold' : 'text-white group-hover:text-red-400'
-                    } transition-colors`}
-                  >
-                    {track.title}
-                  </p>
-                  <p className="text-xs text-neutral-400 truncate mt-0.5">
-                    {track.artist || header.artist}
-                  </p>
-                </div>
+              {/* Title + Artist */}
+              <div className="flex-1 min-w-0">
+                <p
+                  className={`text-[15px] font-semibold truncate leading-snug ${
+                    isCurrent ? 'text-red-500' : 'text-white'
+                  }`}
+                >
+                  {track.title}
+                </p>
+                <p className="text-xs text-neutral-400 truncate mt-0.5">
+                  {track.artist || header.artist}
+                </p>
+              </div>
 
-                {/* Actions & Duration */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* MV Button */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      playTrack(track, tracks);
-                      setPlayerMode('video');
-                      setVideoLayout('theater');
-                    }}
-                    className="p-1.5 text-neutral-400 hover:text-red-400 rounded-lg hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                    title="MVで観る"
-                  >
-                    <Tv className="w-3.5 h-3.5" />
-                  </button>
+              {/* Actions */}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    playTrack(track, tracks);
+                    setPlayerMode('video');
+                    setVideoLayout('theater');
+                  }}
+                  className="hidden sm:flex min-w-[36px] min-h-[36px] items-center justify-center text-neutral-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  title="MVで観る"
+                >
+                  <Tv className="w-4 h-4" />
+                </button>
 
-                  {/* Like Button */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleLikeTrack(track);
-                    }}
-                    className={`p-1.5 transition-all cursor-pointer ${
-                      isLiked
-                        ? 'text-red-500'
-                        : 'text-neutral-400 hover:text-red-500 opacity-0 group-hover:opacity-100'
-                    }`}
-                    title={isLiked ? 'いいね解除' : 'いいね'}
-                  >
-                    <Heart
-                      className={`w-4 h-4 ${isLiked ? 'fill-red-500' : ''}`}
-                    />
-                  </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleLikeTrack(track);
+                  }}
+                  className={`min-w-[40px] min-h-[40px] flex items-center justify-center transition-all cursor-pointer ${
+                    isLiked
+                      ? 'text-red-500 opacity-100'
+                      : 'text-neutral-400 hover:text-white opacity-80 sm:opacity-0 sm:group-hover:opacity-100'
+                  }`}
+                  title={isLiked ? 'お気に入り解除' : 'お気に入りに追加'}
+                  aria-label={isLiked ? 'お気に入り解除' : 'お気に入りに追加'}
+                >
+                  <Heart className={`w-4.5 h-4.5 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+                </button>
 
-                  {/* Add to queue */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addToQueue(track);
-                    }}
-                    className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                    title="キューに追加"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addToQueue(track);
+                    showToast(`「${track.title}」をキューに追加しました`, 'info', 2000);
+                  }}
+                  className="min-w-[36px] min-h-[36px] flex items-center justify-center text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                  title="キューに追加"
+                  aria-label="キューに追加"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
 
-                  {/* Duration */}
-                  <span className="w-12 text-right text-xs font-mono text-neutral-400 tabular-nums">
+                {track.duration && (
+                  <span className="hidden sm:inline-block w-11 text-right text-xs font-mono text-neutral-400 tabular-nums">
                     {track.duration}
                   </span>
-                </div>
+                )}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

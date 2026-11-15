@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Track,
+  Album,
+  Artist,
+  Playlist,
   ViewType,
   PlayerMode,
   VideoLayout,
@@ -12,12 +15,30 @@ import { api } from '../services/api';
 import { equalizer } from '../services/equalizer';
 import { socialSocket } from '../services/socialSocket';
 import { getPlayableOfflineTrack } from '../services/offlineStorage';
+import { normalizeArtistName } from '../utils/artistNames';
+
+const normalizeTrack = (t: Track): Track =>
+  t?.artist ? { ...t, artist: normalizeArtistName(t.artist) || t.artist } : t;
 
 interface UserPlaylist {
   id: string;
   name: string;
   createdAt: string;
   tracks: Track[];
+  isLiked?: boolean;
+}
+
+export type LibraryTabType = 'liked' | 'history' | 'playlists' | 'local';
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
+export interface ToastNotificationPayload {
+  message: string;
+  type: 'info' | 'success' | 'warning';
+  action?: ToastAction;
 }
 
 interface PlayerContextType {
@@ -66,6 +87,13 @@ interface PlayerContextType {
   searchQuery: string;
   likedTrackIds: Set<string>;
   likedTracks: Track[];
+  likedAlbumIds: Set<string>;
+  likedAlbums: Album[];
+  likedPlaylistIds: Set<string>;
+  likedPlaylists: Playlist[];
+  followedArtistIds: Set<string>;
+  followedArtists: Artist[];
+  recentSearches: string[];
   recentTracks: Track[];
   userPlaylists: UserPlaylist[];
 
@@ -111,8 +139,19 @@ interface PlayerContextType {
   setInspectorOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setActiveView: (view: ViewType) => void;
   navigateTo: (view: ViewType, entityId?: string) => void;
+  libraryTab: LibraryTabType;
+  setLibraryTab: React.Dispatch<React.SetStateAction<LibraryTabType>>;
+  libraryResetSeq: number;
+  openFavoritesView: () => void;
   setSearchQuery: (query: string) => void;
   toggleLikeTrack: (track: Track) => void;
+  toggleLikeAlbum: (album: Album) => void;
+  toggleLikePlaylist: (playlist: Playlist) => void;
+  toggleLikeUserPlaylist: (playlistId: string) => void;
+  toggleFollowArtist: (artist: Artist) => void;
+  addRecentSearch: (query: string) => void;
+  removeRecentSearch: (query: string) => void;
+  clearRecentSearches: () => void;
   addToQueue: (track: Track) => void;
   removeFromQueue: (index: number) => void;
   clearQueue: () => void;
@@ -150,7 +189,13 @@ interface PlayerContextType {
 
   // Real-time Synced Lyrics for Mini Player & Components
   currentLyrics: LyricsData | null;
+  lyricsLoading: boolean;
   activeSyncedLyricText: string;
+  hasManualLyricsOverride: boolean;
+  overrideCurrentLyrics: (videoId: string, lyrics: LyricsData) => void;
+  clearLyricsOverride: (videoId: string) => void;
+  lyricsSwitcherTrigger: number;
+  openLyricsSwitcher: () => void;
 
   // Equalizer Modal
   eqModalOpen: boolean;
@@ -197,9 +242,14 @@ interface PlayerContextType {
   setCollabModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
   // Toast notifications & Playback error auto-fallback
-  toastNotification: { message: string; type: 'info' | 'success' | 'warning' } | null;
-  setToastNotification: React.Dispatch<React.SetStateAction<{ message: string; type: 'info' | 'success' | 'warning' } | null>>;
-  showToast: (message: string, type?: 'info' | 'success' | 'warning', duration?: number) => void;
+  toastNotification: ToastNotificationPayload | null;
+  setToastNotification: React.Dispatch<React.SetStateAction<ToastNotificationPayload | null>>;
+  showToast: (
+    message: string,
+    type?: 'info' | 'success' | 'warning',
+    duration?: number,
+    action?: ToastAction
+  ) => void;
   onPlayerError: (errorCode: number, errorMsg?: string) => Promise<void>;
 
   // Internal bridge with YouTube player
@@ -213,6 +263,10 @@ const PlayerContext = createContext<PlayerContextType | null>(null);
 
 const STORAGE_KEYS = {
   LIKED: 'yt_music_liked_tracks_v1',
+  LIKED_ALBUMS: 'yt_music_liked_albums_v1',
+  LIKED_PLAYLISTS: 'yt_music_liked_playlists_v1',
+  FOLLOWED_ARTISTS: 'yt_music_followed_artists_v1',
+  RECENT_SEARCHES: 'yt_music_recent_searches_v1',
   HISTORY: 'yt_music_recent_tracks_v1',
   PLAYLISTS: 'yt_music_user_playlists_v1',
   BG_PLAY: 'yt_music_background_playback_v1',
@@ -276,7 +330,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [historyStats, setHistoryStats] = useState<Record<string, { track: Track; count: number; seconds: number }>>(() => {
     try {
       const saved = localStorage.getItem('yt_listening_history_v1');
-      return saved ? JSON.parse(saved) : {};
+      if (!saved) return {};
+      const parsed = JSON.parse(saved);
+      const out: Record<string, { track: Track; count: number; seconds: number }> = {};
+      for (const [k, v] of Object.entries<any>(parsed || {})) {
+        out[k] = v?.track ? { ...v, track: normalizeTrack(v.track) } : v;
+      }
+      return out;
     } catch {
       return {};
     }
@@ -303,13 +363,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [activeView, setActiveView] = useState<ViewType>('home');
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [libraryTab, setLibraryTab] = useState<LibraryTabType>('liked');
+  const [libraryResetSeq, setLibraryResetSeq] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Persisted state
   const [likedTracks, setLikedTracks] = useState<Track[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.LIKED);
-      return saved ? JSON.parse(saved) : [];
+      const list = saved ? JSON.parse(saved) : [];
+      return Array.isArray(list) ? list.map(normalizeTrack) : [];
     } catch {
       return [];
     }
@@ -318,7 +381,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [recentTracks, setRecentTracks] = useState<Track[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.HISTORY);
-      return saved ? JSON.parse(saved) : [];
+      const list = saved ? JSON.parse(saved) : [];
+      return Array.isArray(list) ? list.map(normalizeTrack) : [];
     } catch {
       return [];
     }
@@ -327,7 +391,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [userPlaylists, setUserPlaylists] = useState<UserPlaylist[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PLAYLISTS);
-      return saved ? JSON.parse(saved) : [
+      const pls = saved ? JSON.parse(saved) : [
         {
           id: 'favorites',
           name: 'My Best Hits',
@@ -335,6 +399,58 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           tracks: [],
         },
       ];
+      return Array.isArray(pls)
+        ? pls.map((p: any) => ({ ...p, tracks: Array.isArray(p?.tracks) ? p.tracks.map(normalizeTrack) : [] }))
+        : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [likedAlbums, setLikedAlbums] = useState<Album[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.LIKED_ALBUMS);
+      const list = saved ? JSON.parse(saved) : [];
+      return Array.isArray(list)
+        ? list.map((a: Album) => ({ ...a, artist: normalizeArtistName(a.artist) || a.artist }))
+        : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [likedPlaylists, setLikedPlaylists] = useState<Playlist[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.LIKED_PLAYLISTS);
+      const list = saved ? JSON.parse(saved) : [];
+      return Array.isArray(list)
+        ? list.map((p: Playlist) => ({
+            ...p,
+            author: p.author ? normalizeArtistName(p.author) || p.author : p.author,
+          }))
+        : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [followedArtists, setFollowedArtists] = useState<Artist[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.FOLLOWED_ARTISTS);
+      const list = saved ? JSON.parse(saved) : [];
+      return Array.isArray(list)
+        ? list.map((a: Artist) => ({ ...a, name: normalizeArtistName(a.name) || a.name }))
+        : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.RECENT_SEARCHES);
+      const list = saved ? JSON.parse(saved) : [];
+      return Array.isArray(list) ? list.filter((s) => typeof s === 'string' && s.trim()) : [];
     } catch {
       return [];
     }
@@ -347,6 +463,38 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn('Storage save failed:', e);
     }
   }, [likedTracks]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.LIKED_ALBUMS, JSON.stringify(likedAlbums));
+    } catch (e) {
+      console.warn('Storage save failed:', e);
+    }
+  }, [likedAlbums]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.LIKED_PLAYLISTS, JSON.stringify(likedPlaylists));
+    } catch (e) {
+      console.warn('Storage save failed:', e);
+    }
+  }, [likedPlaylists]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.FOLLOWED_ARTISTS, JSON.stringify(followedArtists));
+    } catch (e) {
+      console.warn('Storage save failed:', e);
+    }
+  }, [followedArtists]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.RECENT_SEARCHES, JSON.stringify(recentSearches.slice(0, 15)));
+    } catch (e) {
+      console.warn('Storage save failed:', e);
+    }
+  }, [recentSearches]);
 
   useEffect(() => {
     try {
@@ -507,15 +655,83 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     refreshTrackOffsets();
   }, [refreshTrackOffsets]);
 
-  // Real-time Lyrics for Floating Player and general consumers
+  // Real-time Lyrics for Floating Player and general consumers (with persistent per-track manual overrides)
   const [currentLyrics, setCurrentLyrics] = useState<LyricsData | null>(null);
+  const [lyricsLoading, setLyricsLoading] = useState<boolean>(false);
+  const [lyricsSwitcherTrigger, setLyricsSwitcherTrigger] = useState<number>(0);
+  const [lyricsOverrides, setLyricsOverrides] = useState<Record<string, LyricsData>>(() => {
+    try {
+      const saved = localStorage.getItem('yt_music_lyrics_overrides_v1');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const lyricsOverridesRef = useRef<Record<string, LyricsData>>(lyricsOverrides);
+  useEffect(() => {
+    lyricsOverridesRef.current = lyricsOverrides;
+    try {
+      const entries = Object.entries(lyricsOverrides);
+      const trimmed = entries.length > 25 ? Object.fromEntries(entries.slice(-25)) : lyricsOverrides;
+      localStorage.setItem('yt_music_lyrics_overrides_v1', JSON.stringify(trimmed));
+    } catch {}
+  }, [lyricsOverrides]);
+
+  const overrideCurrentLyrics = useCallback((videoId: string, lyrics: LyricsData) => {
+    setLyricsOverrides((prev) => ({ ...prev, [videoId]: lyrics }));
+    if (currentTrack?.id === videoId) {
+      setCurrentLyrics(lyrics);
+    }
+  }, [currentTrack?.id]);
+
+  const clearLyricsOverride = useCallback((videoId: string) => {
+    setLyricsOverrides((prev) => {
+      const next = { ...prev };
+      delete next[videoId];
+      return next;
+    });
+    if (currentTrack?.id === videoId) {
+      setLyricsLoading(true);
+      api
+        .getLyrics(
+          currentTrack.id,
+          currentTrack.title,
+          currentTrack.artist,
+          currentTrack.durationSeconds || duration
+        )
+        .then((res) => {
+          setCurrentLyrics(res);
+          setLyricsLoading(false);
+        })
+        .catch(() => {
+          setLyricsLoading(false);
+        });
+    }
+  }, [currentTrack, duration]);
+
+  const openLyricsSwitcher = useCallback(() => {
+    setLyricsOpen(true);
+    setLyricsSwitcherTrigger((n) => n + 1);
+  }, []);
+
+  const hasManualLyricsOverride = Boolean(currentTrack && lyricsOverrides[currentTrack.id]);
 
   useEffect(() => {
     if (!currentTrack) {
       setCurrentLyrics(null);
+      setLyricsLoading(false);
+      return;
+    }
+    const overridden = lyricsOverridesRef.current[currentTrack.id];
+    if (overridden) {
+      setCurrentLyrics(overridden);
+      setLyricsLoading(false);
       return;
     }
     let cancelled = false;
+    setLyricsLoading(true);
+    setCurrentLyrics(null);
     api
       .getLyrics(
         currentTrack.id,
@@ -526,11 +742,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       .then((res) => {
         if (!cancelled) {
           setCurrentLyrics(res);
+          setLyricsLoading(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setCurrentLyrics(null);
+          setLyricsLoading(false);
         }
       });
     return () => {
@@ -822,6 +1040,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const accountEmail = currentUser?.email || null;
 
   const likedTrackIds = new Set(likedTracks.map((t) => t.id));
+  const likedAlbumIds = useMemo(() => new Set(likedAlbums.map((a) => a.id)), [likedAlbums]);
+  const likedPlaylistIds = useMemo(() => new Set(likedPlaylists.map((p) => p.id)), [likedPlaylists]);
 
   const toggleBackgroundPlayback = useCallback(() => {
     setBackgroundPlaybackEnabled((prev) => !prev);
@@ -857,6 +1077,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  const openFavoritesView = useCallback(() => {
+    setFullScreenPlayerOpen(false);
+    setLyricsOpen(false);
+    setQueueOpen(false);
+    setLibraryTab('liked');
+    setLibraryResetSeq((prev) => prev + 1);
+    navigateTo('library');
+  }, [navigateTo]);
 
   // Send raw commands to player instance and iframe postMessage
   const dispatchPlayCommand = useCallback(() => {
@@ -904,9 +1133,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       userIntendedPlayingRef.current = true;
       isTransitioningEarlyRef.current = false;
 
-      let resolvedTrack = track;
+      let resolvedTrack = normalizeTrack(track);
       if (track.isLocal) {
-        resolvedTrack = await getPlayableOfflineTrack(track);
+        resolvedTrack = normalizeTrack(await getPlayableOfflineTrack(track));
       }
 
       setCurrentTrack(resolvedTrack);
@@ -955,8 +1184,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       if (customQueue && customQueue.length > 0) {
-        setQueue(customQueue);
-        const idx = customQueue.findIndex((t) => t.id === resolvedTrack.id);
+        const cleanQueue = customQueue.map(normalizeTrack);
+        setQueue(cleanQueue);
+        const idx = cleanQueue.findIndex((t) => t.id === resolvedTrack.id);
         setQueueIndex(idx >= 0 ? idx : 0);
       } else {
         setQueue((prevQueue) => {
@@ -1499,13 +1729,37 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, []);
 
-  const [toastNotification, setToastNotification] = useState<{ message: string; type: 'info' | 'success' | 'warning' } | null>(null);
-  const showToast = useCallback((message: string, type: 'info' | 'success' | 'warning' = 'info', duration = 4000) => {
-    setToastNotification({ message, type });
-    setTimeout(() => {
-      setToastNotification((prev) => (prev?.message === message ? null : prev));
-    }, duration);
+  const [toastNotification, setToastNotification] = useState<ToastNotificationPayload | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
   }, []);
+
+  const showToast = useCallback(
+    (
+      message: string,
+      type: 'info' | 'success' | 'warning' = 'info',
+      duration = 4000,
+      action?: ToastAction
+    ) => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+      const payload: ToastNotificationPayload = { message, type, action };
+      setToastNotification(payload);
+      toastTimerRef.current = setTimeout(() => {
+        setToastNotification((prev) => (prev === payload ? null : prev));
+        toastTimerRef.current = null;
+      }, duration);
+    },
+    []
+  );
 
   const cycleShuffleMode = useCallback(async () => {
     setShuffleMode((prev) => {
@@ -1651,19 +1905,228 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [playTrack]
   );
 
-  const toggleLikeTrack = useCallback((track: Track) => {
-    setLikedTracks((prev) => {
-      const exists = prev.some((t) => t.id === track.id);
-      if (exists) {
-        return prev.filter((t) => t.id !== track.id);
+  const likedTracksRef = useRef<Track[]>(likedTracks);
+  const likedAlbumsRef = useRef<Album[]>(likedAlbums);
+  const likedPlaylistsRef = useRef<Playlist[]>(likedPlaylists);
+  const userPlaylistsRef = useRef<UserPlaylist[]>(userPlaylists);
+
+  useEffect(() => {
+    likedTracksRef.current = likedTracks;
+  }, [likedTracks]);
+
+  useEffect(() => {
+    likedAlbumsRef.current = likedAlbums;
+  }, [likedAlbums]);
+
+  useEffect(() => {
+    likedPlaylistsRef.current = likedPlaylists;
+  }, [likedPlaylists]);
+
+  useEffect(() => {
+    userPlaylistsRef.current = userPlaylists;
+  }, [userPlaylists]);
+
+  const toggleLikeTrack = useCallback(
+    (track: Track) => {
+      if (!track?.id) return;
+      const current = likedTracksRef.current;
+      const existingIdx = current.findIndex((t) => t.id === track.id);
+
+      if (existingIdx !== -1) {
+        const removed = current[existingIdx];
+        setLikedTracks((prev) => prev.filter((t) => t.id !== track.id));
+        showToast(`「${removed.title}」のお気に入りを解除しました`, 'info', 5000, {
+          label: '元に戻す',
+          onClick: () => {
+            setLikedTracks((curr) => {
+              if (curr.some((t) => t.id === removed.id)) return curr;
+              const next = [...curr];
+              next.splice(Math.min(existingIdx, next.length), 0, removed);
+              return next;
+            });
+            showToast('元に戻しました', 'success', 1800);
+          },
+        });
       } else {
-        return [track, ...prev];
+        const cleanTrack = normalizeTrack(track);
+        setLikedTracks((prev) =>
+          prev.some((t) => t.id === cleanTrack.id) ? prev : [cleanTrack, ...prev]
+        );
+        showToast(`「${cleanTrack.title}」をお気に入りに追加しました`, 'success', 4500, {
+          label: 'お気に入り一覧を開く',
+          onClick: openFavoritesView,
+        });
       }
-    });
+    },
+    [showToast, openFavoritesView]
+  );
+
+  const toggleLikeAlbum = useCallback(
+    (album: Album) => {
+      if (!album?.id) return;
+      const current = likedAlbumsRef.current;
+      const existingIdx = current.findIndex((a) => a.id === album.id);
+
+      if (existingIdx !== -1) {
+        const removed = current[existingIdx];
+        setLikedAlbums((prev) => prev.filter((a) => a.id !== album.id));
+        showToast(`「${removed.title}」のお気に入りを解除しました`, 'info', 5000, {
+          label: '元に戻す',
+          onClick: () => {
+            setLikedAlbums((curr) => {
+              if (curr.some((a) => a.id === removed.id)) return curr;
+              const next = [...curr];
+              next.splice(Math.min(existingIdx, next.length), 0, removed);
+              return next;
+            });
+            showToast('元に戻しました', 'success', 1800);
+          },
+        });
+      } else {
+        const normalized: Album = {
+          ...album,
+          artist: normalizeArtistName(album.artist) || album.artist,
+        };
+        setLikedAlbums((prev) =>
+          prev.some((a) => a.id === normalized.id) ? prev : [normalized, ...prev]
+        );
+        showToast(`「${normalized.title}」をお気に入りに追加しました`, 'success', 4500, {
+          label: 'お気に入り一覧を開く',
+          onClick: openFavoritesView,
+        });
+      }
+    },
+    [showToast, openFavoritesView]
+  );
+
+  const toggleLikePlaylist = useCallback(
+    (playlist: Playlist) => {
+      if (!playlist?.id) return;
+      const current = likedPlaylistsRef.current;
+      const existingIdx = current.findIndex((p) => p.id === playlist.id);
+
+      if (existingIdx !== -1) {
+        const removed = current[existingIdx];
+        setLikedPlaylists((prev) => prev.filter((p) => p.id !== playlist.id));
+        showToast(`「${removed.title}」のお気に入りを解除しました`, 'info', 5000, {
+          label: '元に戻す',
+          onClick: () => {
+            setLikedPlaylists((curr) => {
+              if (curr.some((p) => p.id === removed.id)) return curr;
+              const next = [...curr];
+              next.splice(Math.min(existingIdx, next.length), 0, removed);
+              return next;
+            });
+            showToast('元に戻しました', 'success', 1800);
+          },
+        });
+      } else {
+        const normalized: Playlist = {
+          ...playlist,
+          author: playlist.author ? normalizeArtistName(playlist.author) || playlist.author : playlist.author,
+        };
+        setLikedPlaylists((prev) =>
+          prev.some((p) => p.id === normalized.id) ? prev : [normalized, ...prev]
+        );
+        showToast(`「${normalized.title}」をお気に入りに追加しました`, 'success', 4500, {
+          label: 'お気に入り一覧を開く',
+          onClick: openFavoritesView,
+        });
+      }
+    },
+    [showToast, openFavoritesView]
+  );
+
+  const toggleLikeUserPlaylist = useCallback(
+    (playlistId: string) => {
+      const target = userPlaylistsRef.current.find((pl) => pl.id === playlistId);
+      if (!target) return;
+      const willLike = !target.isLiked;
+
+      setUserPlaylists((prev) =>
+        prev.map((pl) => (pl.id === playlistId ? { ...pl, isLiked: willLike } : pl))
+      );
+
+      if (willLike) {
+        showToast(`「${target.name}」をお気に入りに追加しました`, 'success', 4500, {
+          label: 'お気に入り一覧を開く',
+          onClick: openFavoritesView,
+        });
+      } else {
+        showToast(`「${target.name}」のお気に入りを解除しました`, 'info', 5000, {
+          label: '元に戻す',
+          onClick: () => {
+            setUserPlaylists((curr) =>
+              curr.map((pl) => (pl.id === playlistId ? { ...pl, isLiked: true } : pl))
+            );
+            showToast('元に戻しました', 'success', 1800);
+          },
+        });
+      }
+    },
+    [showToast, openFavoritesView]
+  );
+
+  const followedArtistIds = useMemo(
+    () => new Set(followedArtists.map((a) => a.id)),
+    [followedArtists]
+  );
+
+  const followedArtistsRef = useRef<Artist[]>(followedArtists);
+  useEffect(() => {
+    followedArtistsRef.current = followedArtists;
+  }, [followedArtists]);
+
+  const toggleFollowArtist = useCallback(
+    (artist: Artist) => {
+      if (!artist?.id) return;
+      const current = followedArtistsRef.current;
+      const existingIdx = current.findIndex((a) => a.id === artist.id);
+      if (existingIdx !== -1) {
+        const removed = current[existingIdx];
+        setFollowedArtists((prev) => prev.filter((a) => a.id !== artist.id));
+        showToast(`「${removed.name}」のフォローを解除しました`, 'info', 4500, {
+          label: '元に戻す',
+          onClick: () => {
+            setFollowedArtists((curr) => {
+              if (curr.some((a) => a.id === removed.id)) return curr;
+              const next = [...curr];
+              next.splice(Math.min(existingIdx, next.length), 0, removed);
+              return next;
+            });
+            showToast('元に戻しました', 'success', 1800);
+          },
+        });
+      } else {
+        const normalized: Artist = {
+          ...artist,
+          name: normalizeArtistName(artist.name) || artist.name,
+        };
+        setFollowedArtists((prev) =>
+          prev.some((a) => a.id === normalized.id) ? prev : [normalized, ...prev]
+        );
+        showToast(`「${normalized.name}」をフォローしました`, 'success', 3000);
+      }
+    },
+    [showToast]
+  );
+
+  const addRecentSearch = useCallback((query: string) => {
+    const clean = query.trim();
+    if (!clean) return;
+    setRecentSearches((prev) => [clean, ...prev.filter((q) => q !== clean)].slice(0, 12));
+  }, []);
+
+  const removeRecentSearch = useCallback((query: string) => {
+    setRecentSearches((prev) => prev.filter((q) => q !== query));
+  }, []);
+
+  const clearRecentSearches = useCallback(() => {
+    setRecentSearches([]);
   }, []);
 
   const addToQueue = useCallback((track: Track) => {
-    setQueue((prev) => [...prev, track]);
+    setQueue((prev) => [...prev, normalizeTrack(track)]);
   }, []);
 
   const removeFromQueue = useCallback((index: number) => {
@@ -1701,18 +2164,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: `pl_${Date.now()}`,
       name: name.trim(),
       createdAt: new Date().toISOString(),
-      tracks,
+      tracks: tracks.map(normalizeTrack),
     };
     setUserPlaylists((prev) => [newPl, ...prev]);
   }, []);
 
   const addToUserPlaylist = useCallback((playlistId: string, track: Track) => {
+    const cleanTrack = normalizeTrack(track);
     setUserPlaylists((prev) =>
       prev.map((pl) => {
         if (pl.id === playlistId) {
-          const exists = pl.tracks.some((t) => t.id === track.id);
+          const exists = pl.tracks.some((t) => t.id === cleanTrack.id);
           if (exists) return pl;
-          return { ...pl, tracks: [...pl.tracks, track] };
+          return { ...pl, tracks: [...pl.tracks, cleanTrack] };
         }
         return pl;
       })
@@ -1999,6 +2463,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         searchQuery,
         likedTrackIds,
         likedTracks,
+        likedAlbumIds,
+        likedAlbums,
+        likedPlaylistIds,
+        likedPlaylists,
+        followedArtistIds,
+        followedArtists,
+        recentSearches,
         recentTracks,
         userPlaylists,
 
@@ -2044,8 +2515,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setInspectorOpen,
         setActiveView,
         navigateTo,
+        libraryTab,
+        setLibraryTab,
+        libraryResetSeq,
+        openFavoritesView,
         setSearchQuery,
         toggleLikeTrack,
+        toggleLikeAlbum,
+        toggleLikePlaylist,
+        toggleLikeUserPlaylist,
+        toggleFollowArtist,
+        addRecentSearch,
+        removeRecentSearch,
+        clearRecentSearches,
         addToQueue,
         removeFromQueue,
         clearQueue,
@@ -2079,7 +2561,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         openAddToPlaylistModal,
 
         currentLyrics,
+        lyricsLoading,
         activeSyncedLyricText,
+        hasManualLyricsOverride,
+        overrideCurrentLyrics,
+        clearLyricsOverride,
+        lyricsSwitcherTrigger,
+        openLyricsSwitcher,
 
         eqModalOpen,
         setEqModalOpen,

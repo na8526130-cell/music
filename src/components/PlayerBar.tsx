@@ -130,49 +130,42 @@ export const PlayerBar: React.FC = () => {
 
   return (
     <>
-      {/* MOBILE MINI-PLAYER (Floating pill matching Image 1, docked above BottomTabBar) */}
+      {/* MOBILE MINI-PLAYER (Spotify-style floating card docked above BottomTabBar) */}
       <div
         onClick={() => setFullScreenPlayerOpen(true)}
-        className="sm:hidden fixed bottom-[68px] left-2 right-2 z-40 bg-[#14080a]/95 backdrop-blur-xl border border-red-950/50 rounded-xl p-2 shadow-2xl flex items-center justify-between gap-2.5 cursor-pointer active:scale-[0.99] transition-transform overflow-hidden"
+        className="sm:hidden fixed bottom-[64px] left-2 right-2 z-40 bg-[#231215]/95 backdrop-blur-xl border border-white/10 rounded-lg px-2.5 py-2 shadow-2xl flex items-center justify-between gap-2.5 cursor-pointer active:scale-[0.99] transition-transform overflow-hidden"
       >
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <div className="relative shrink-0">
-            <SafeImage
-              src={currentTrack.thumbnail}
-              alt={currentTrack.title}
-              useBase64
-              className="w-10 h-10 rounded-lg object-cover bg-neutral-800 shadow"
-            />
-            {isPlaying && (
-              <span className="absolute bottom-0.5 right-0.5 flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
-              </span>
-            )}
-          </div>
+          <SafeImage
+            src={currentTrack.thumbnail}
+            alt={currentTrack.title}
+            useBase64
+            className="w-10 h-10 rounded object-cover bg-neutral-800 shrink-0 shadow"
+          />
           <div className="min-w-0 flex-1">
-            <h4 className="text-xs font-bold text-white truncate">
+            <h4 className="text-[13px] font-bold text-white truncate leading-tight">
               {currentTrack.title}
             </h4>
-            <p className="text-[11px] text-neutral-400 truncate">
+            <p className="text-[11px] text-neutral-300 truncate leading-tight mt-0.5">
               {currentTrack.artist}
             </p>
           </div>
         </div>
 
         {/* Mobile right quick actions (Heart + Play/Pause) */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center shrink-0">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               toggleLikeTrack(currentTrack);
             }}
-            className="p-1.5 text-neutral-400 hover:text-red-500 transition-colors"
+            className="min-w-[40px] min-h-[40px] flex items-center justify-center text-neutral-300 hover:text-red-500 transition-colors cursor-pointer"
             title={isLiked ? 'お気に入りから削除' : 'お気に入りに追加'}
+            aria-label={isLiked ? 'お気に入りから削除' : 'お気に入りに追加'}
           >
             <Heart
-              className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-neutral-400'}`}
+              className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-neutral-300'}`}
             />
           </button>
           <button
@@ -181,8 +174,9 @@ export const PlayerBar: React.FC = () => {
               e.stopPropagation();
               togglePlay();
             }}
-            className="p-1.5 text-white hover:text-red-400 transition-colors"
+            className="min-w-[40px] min-h-[40px] flex items-center justify-center text-white hover:text-red-400 transition-colors cursor-pointer"
             title={isPlaying ? '一時停止' : '再生'}
+            aria-label={isPlaying ? '一時停止' : '再生'}
           >
             {isPlaying ? (
               <Pause className="w-5 h-5 fill-current" />
@@ -192,10 +186,10 @@ export const PlayerBar: React.FC = () => {
           </button>
         </div>
 
-        {/* Thin bottom progress line along bottom of mobile card */}
-        <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-neutral-800/80 rounded-full overflow-hidden">
+        {/* Crisp bottom progress line */}
+        <div className="absolute bottom-0 left-2 right-2 h-[2px] bg-white/15 rounded-full overflow-hidden">
           <div
-            className="h-full bg-red-600 rounded-full transition-all duration-100"
+            className="h-full bg-white rounded-full transition-all duration-100"
             style={{ width: `${percent}%` }}
           />
         </div>
